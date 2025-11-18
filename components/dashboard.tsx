@@ -1,3 +1,4 @@
+import { User } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -21,6 +22,7 @@ type Registro = {
   created_at: string
   autor_id: string
 }
+
 const DATA_TABLE_NAME = 'observatorio_registros'
 export function Dashboard() {
   const { session, profile } = useAuthContext()
@@ -31,6 +33,9 @@ export function Dashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [userInfo, setUserInfo] = useState<User | null>(null)
+  const [isFetchingUserInfo, setIsFetchingUserInfo] = useState(false)
+  const [userInfoError, setUserInfoError] = useState<string | null>(null)
   const fetchRegistros = useCallback(async () => {
     setLastError(null)
     setIsLoading(true)
@@ -54,11 +59,41 @@ export function Dashboard() {
       fetchRegistros()
     }
   }, [session, fetchRegistros])
+  useEffect(() => {
+    setUserInfo(null)
+    setUserInfoError(null)
+  }, [session])
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true)
     await fetchRegistros()
     setIsRefreshing(false)
   }, [fetchRegistros])
+  const handleFetchUserInfo = useCallback(async () => {
+    if (!session) {
+      setUserInfoError('No encontramos una sesión activa.')
+      return
+    }
+    setIsFetchingUserInfo(true)
+    setUserInfoError(null)
+    try {
+      const { data, error } = await supabase.auth.getUser()
+      if (error) {
+        throw error
+      }
+      setUserInfo(data.user ?? null)
+      if (!data.user) {
+        setUserInfoError('No pudimos obtener los datos del usuario.')
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error)
+      setUserInfo(null)
+      setUserInfoError(
+        'No pudimos recuperar tus datos. Inténtalo de nuevo en unos segundos.',
+      )
+    } finally {
+      setIsFetchingUserInfo(false)
+    }
+  }, [session])
   const handleSubmit = async () => {
     if (!titulo.trim() || !descripcion.trim() || !session) {
       Alert.alert('Completa los campos para guardar un registro.')
@@ -95,7 +130,7 @@ export function Dashboard() {
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
-    >
+        >
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.welcomeTitle}>¡Hola, {profile?.full_name ?? session?.user.email}!</Text>
@@ -105,6 +140,68 @@ export function Dashboard() {
           </Text>
         </View>
         <SignOutButton />
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Información del usuario</Text>
+        <Text style={styles.cardSubtitle}>
+          Recupera desde Supabase los datos asociados a tu sesión actual.
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.userInfoButton,
+            isFetchingUserInfo && styles.buttonDisabled,
+          ]}
+          onPress={handleFetchUserInfo}
+          disabled={isFetchingUserInfo}
+        >
+          {isFetchingUserInfo ? (
+            <ActivityIndicator color={brandColors.surface} />
+          ) : (
+            <Text style={styles.buttonLabel}>Mostrar mis datos</Text>
+          )}
+        </TouchableOpacity>
+        {userInfoError && <Text style={styles.errorText}>{userInfoError}</Text>}
+        {userInfo && (
+          <View style={styles.userInfoBox}>
+            {[
+              {
+                label: 'Nombre',
+                value:
+                  profile?.full_name ||
+                  (userInfo.user_metadata &&
+                    (userInfo.user_metadata.full_name ||
+                      userInfo.user_metadata.name)) ||
+                  'Sin registrar',
+              },
+              {
+                label: 'Correo',
+                value: userInfo.email ?? session?.user.email ?? 'Sin correo',
+              },
+              {
+                label: 'ID de usuario',
+                value: userInfo.id,
+              },
+              {
+                label: 'Fecha de creación',
+                value: userInfo.created_at
+                  ? new Date(userInfo.created_at).toLocaleString('es-MX')
+                  : 'Sin registro',
+              },
+              {
+                label: 'Último acceso',
+                value: userInfo.last_sign_in_at
+                  ? new Date(userInfo.last_sign_in_at).toLocaleString('es-MX')
+                  : 'Sin registro',
+              },
+            ].map((item) => (
+              <View key={item.label} style={styles.userInfoRow}>
+                <Text style={styles.userInfoLabel}>{item.label}</Text>
+                <Text style={styles.userInfoValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Nuevo registro</Text>
@@ -250,6 +347,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: brandColors.surface,
   },
+  userInfoButton: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
   errorText: {
     fontFamily: typography.regular,
     color: brandColors.accent,
@@ -279,5 +380,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: brandColors.muted,
     marginTop: 6,
+  },
+  userInfoBox: {
+    borderWidth: 1,
+    borderColor: '#E0E4EA',
+    borderRadius: 14,
+    padding: 16,
+    backgroundColor: '#F8FAFF',
+  },
+  userInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  userInfoLabel: {
+    fontFamily: typography.emphasis,
+    fontSize: 14,
+    color: brandColors.primary,
+  },
+  userInfoValue: {
+    fontFamily: typography.regular,
+    fontSize: 14,
+    color: brandColors.text,
+    textAlign: 'right',
+    flexShrink: 1,
   },
 })
