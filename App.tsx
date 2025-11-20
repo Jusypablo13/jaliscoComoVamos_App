@@ -1,13 +1,14 @@
+import { NavigationContainer } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { ReactNode } from 'react'
 import {
   ActivityIndicator,
-  SafeAreaView,
   StyleSheet,
   View,
 } from 'react-native'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
+import { AppNavigator } from './components/app-navigator'
 import AuthProvider from './components/auth-provider'
-import Dashboard from './components/dashboard'
 import { LoginScreen } from './components/login'
 import { SplashScreenController } from './components/splash-screen-controller'
 import { useAuthContext } from './hooks/use-auth-context'
@@ -32,19 +33,21 @@ function AppContent() {
     )
   }
   return (
-    <ScreenContainer>
-      <Dashboard />
-    </ScreenContainer>
+    <NavigationContainer>
+      <AppNavigator />
+    </NavigationContainer>
   )
 }
 export default function App() {
   return (
     <AuthProvider>
-      <SplashScreenController />
-      <SafeAreaView style={styles.safeArea}>
-        <AppContent />
-        <StatusBar style="dark" />
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SplashScreenController />
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <AppContent />
+          <StatusBar style="dark" />
+        </SafeAreaView>
+      </SafeAreaProvider>
     </AuthProvider>
   )
 }
