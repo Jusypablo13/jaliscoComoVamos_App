@@ -8,6 +8,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isGuest, setIsGuest] = useState<boolean>(false)
 
   useEffect(() => {
     let isActive = true
@@ -37,6 +38,10 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       }
 
       setSession(nextSession)
+      // If we have a session, we are not a guest
+      if (nextSession) {
+        setIsGuest(false)
+      }
     })
 
     return () => {
@@ -84,13 +89,23 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [session])
 
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setIsGuest(false)
+    setSession(null)
+    setProfile(null)
+  }
+
   return (
     <AuthContext.Provider
       value={{
         session,
         profile,
         isLoading,
-        isLoggedIn: !!session,
+        isLoggedIn: !!session || isGuest,
+        isGuest,
+        loginAsGuest: () => setIsGuest(true),
+        logout,
       }}
     >
       {children}

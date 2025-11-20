@@ -1,3 +1,5 @@
+import { supabase } from "../lib/supabase"
+
 export type Json =
     | string
     | number
@@ -26,6 +28,22 @@ export interface Database {
                     nombre_categoria?: string
                 }
             }
+
+            Municipios: {
+                Row: {
+                    id: number
+                    nombre: string
+                }
+                Insert: {
+                    id?: number
+                    nombre: string
+                }
+                Update: {
+                    id?: number
+                    nombre?: string
+                }
+            }
+
             encuestalol: {
                 Row: {
                     // Metadata
@@ -386,4 +404,18 @@ export interface Database {
             }
         }
     }
+}
+
+export async function getMunicipios() {
+    const { data, error } = await supabase
+        .from('Municipios')
+        .select('id, nombre')
+        .order('nombre', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching municipios:', error);
+        return [];
+    }
+
+    return data || [];
 }

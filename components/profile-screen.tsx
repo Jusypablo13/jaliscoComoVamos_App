@@ -13,7 +13,7 @@ import { brandColors, typography } from '../styles/theme'
 import SignOutButton from './sign-out-button'
 
 export function ProfileScreen() {
-    const { session, profile } = useAuthContext()
+    const { session, profile, isGuest, logout } = useAuthContext()
     const [userInfo, setUserInfo] = useState<User | null>(null)
     const [isFetchingUserInfo, setIsFetchingUserInfo] = useState(false)
     const [userInfoError, setUserInfoError] = useState<string | null>(null)
@@ -24,6 +24,8 @@ export function ProfileScreen() {
     }, [session])
 
     const handleFetchUserInfo = useCallback(async () => {
+        if (isGuest) return
+
         if (!session) {
             setUserInfoError('No encontramos una sesión activa.')
             return
@@ -120,9 +122,28 @@ export function ProfileScreen() {
                 )}
             </View>
 
-            <View style={styles.signOutContainer}>
-                <SignOutButton />
-            </View>
+            {isGuest && (
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Modo Invitado</Text>
+                    <Text style={styles.cardSubtitle}>
+                        Estás navegando como invitado. Para acceder a todas las funciones y
+                        guardar tu progreso, inicia sesión.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.button}
+                        // Signing out clears the guest session, triggering the auth flow again
+                        onPress={logout}
+                    >
+                        <Text style={styles.buttonLabel}>Ir al Login</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {!isGuest && (
+                <View style={styles.signOutContainer}>
+                    <SignOutButton />
+                </View>
+            )}
         </View>
     )
 }

@@ -19,7 +19,7 @@ import { ResultsView } from './analytics/results-view'
 import { SegmentationControls } from './analytics/segmentation-controls'
 
 export function HomeScreen() {
-    const { session, profile } = useAuthContext()
+    const { session, profile, isGuest } = useAuthContext()
     const { selectedCategories } = useUserPreferences()
 
     const [filters, setFilters] = useState<AnalyticsFilters>({
@@ -78,7 +78,7 @@ export function HomeScreen() {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.welcomeTitle}>
-                        ¡Hola, {profile?.full_name ?? session?.user.email}!
+                        ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
                     </Text>
                     <Text style={styles.welcomeSubtitle}>
                         Explora los datos del Observatorio

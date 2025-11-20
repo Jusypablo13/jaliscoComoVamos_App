@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     LayoutAnimation,
     StyleSheet,
@@ -7,24 +7,22 @@ import {
     View,
 } from 'react-native'
 import { brandColors, typography } from '../../styles/theme'
+import { getMunicipios } from '../../types/supabase'
 
 type SegmentationControlsProps = {
-    onFilterChange: (filters: {
-        sexo?: number
-        nse?: number
-        calidadVida?: number
-        edad?: number
-        escolaridad?: number
-        municipio?: number
-    }) => void
-    activeFilters: {
-        sexo?: number
-        nse?: number
-        calidadVida?: number
-        edad?: number
-        escolaridad?: number
-        municipio?: number
-    }
+    onFilterChange: (filters: Filters) => void
+    activeFilters: Filters
+}
+
+type CalidadVida = 'buena' | 'regular' | 'mala' | number | undefined
+
+type Filters = {
+    sexo?: number
+    nse?: number
+    calidadVida?: CalidadVida
+    edad?: string | undefined
+    escolaridad?: string | undefined
+    municipio?: string | undefined
 }
 
 export function SegmentationControls({
@@ -38,9 +36,21 @@ export function SegmentationControls({
         setIsExpanded(!isExpanded)
     }
 
-    const updateFilter = (key: keyof SegmentationControlsProps['activeFilters'], val: number | undefined) => {
+    const updateFilter = <K extends keyof Filters>(
+        key: K,
+        val: Filters[K]
+    ) => {
         onFilterChange({ ...activeFilters, [key]: val })
     }
+    const [municipios, setMunicipios] = useState<Array<{ id: number; nombre: string }>>([])
+
+    useEffect(() => {
+        const fetchMunicipios = async () => {
+            const municipios = await getMunicipios()
+            setMunicipios(municipios)
+        }
+        fetchMunicipios()
+    }, [])
 
     return (
         <View style={styles.container}>
@@ -113,56 +123,333 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.nse === undefined && styles.optionSelected,
+                                    activeFilters.calidadVida === undefined && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('nse', undefined)}
+                                onPress={() => updateFilter('calidadVida', undefined)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.nse === undefined &&
-                                        styles.optionTextSelected,
+                                        activeFilters.calidadVida === undefined && styles.optionTextSelected,
                                     ]}
                                 >
                                     Todos
                                 </Text>
                             </TouchableOpacity>
-                            {[1, 2, 3, 4].map((level) => (
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.calidadVida === 'buena' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('calidadVida', 'buena')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.calidadVida === 'buena' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Buena
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.calidadVida === 'regular' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('calidadVida', 'regular')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.calidadVida === 'regular' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Regular
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.calidadVida === 'mala' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('calidadVida', 'mala')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.calidadVida === 'mala' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Mala
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Edad Filter*/}
+                    <View style={styles.filterGroup}>
+                        <Text style={styles.label}>Edad</Text>
+                        <View style={styles.row}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === undefined && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', undefined)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === undefined && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Todos
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === '18-24' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', '18-24')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === '18-24' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    18-24
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === '25-34' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', '25-34')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === '25-34' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    25-34
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === '35-44' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', '35-44')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === '35-44' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    35-44
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === '45-54' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', '45-54')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === '45-54' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    45-54
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.edad === '55+' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('edad', '55+')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.edad === '55+' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    55+
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Escolaridad Filter*/}
+                    <View style={styles.filterGroup}>
+                        <Text style={styles.label}>Escolaridad</Text>
+                        <View style={styles.row}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === undefined && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', undefined)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === undefined && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Todos
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === 'primaria' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', 'primaria')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === 'primaria' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Primaria
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === 'secundaria' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', 'secundaria')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === 'secundaria' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Secundaria
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === 'preparatoria' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', 'preparatoria')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === 'preparatoria' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Preparatoria
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === 'universidad' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', 'universidad')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === 'universidad' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Universidad
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.escolaridad === 'posgrado' && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('escolaridad', 'posgrado')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.escolaridad === 'posgrado' && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Posgrado
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Municipio Filter*/}
+
+                    <View style={styles.filterGroup}>
+                        <Text style={styles.label}>Municipio</Text>
+                        <View style={styles.row}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.option,
+                                    activeFilters.municipio === undefined && styles.optionSelected,
+                                ]}
+                                onPress={() => updateFilter('municipio', undefined)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.optionText,
+                                        activeFilters.municipio === undefined && styles.optionTextSelected,
+                                    ]}
+                                >
+                                    Todos
+                                </Text>
+                            </TouchableOpacity>
+                            {municipios.map((municipio) => (
                                 <TouchableOpacity
-                                    key={level}
+                                    key={municipio.id}
                                     style={[
                                         styles.option,
-                                        activeFilters.nse === level && styles.optionSelected,
+                                        activeFilters.municipio === municipio.nombre && styles.optionSelected,
                                     ]}
-                                    onPress={() => updateFilter('nse', level)}
+                                    onPress={() => updateFilter('municipio', municipio.nombre)}
                                 >
                                     <Text
                                         style={[
                                             styles.optionText,
-                                            activeFilters.nse === level && styles.optionTextSelected,
+                                            activeFilters.municipio === municipio.nombre && styles.optionTextSelected,
                                         ]}
                                     >
-                                        {level}
+                                        {municipio.nombre}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
                     </View>
-                    {/* NSE Filter */}
+                    {/* Calidad de Vida Filter*/}
                     <View style={styles.filterGroup}>
-                        <Text style={styles.label}>Nivel Socioeconómico (NSE)</Text>
+                        <Text style={styles.label}>Calidad de Vida</Text>
                         <View style={styles.row}>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.nse === undefined && styles.optionSelected,
+                                    activeFilters.calidadVida === undefined && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('nse', undefined)}
+                                onPress={() => updateFilter('calidadVida', undefined)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.nse === undefined &&
+                                        activeFilters.calidadVida === undefined &&
                                         styles.optionTextSelected,
                                     ]}
                                 >
@@ -174,14 +461,14 @@ export function SegmentationControls({
                                     key={level}
                                     style={[
                                         styles.option,
-                                        activeFilters.nse === level && styles.optionSelected,
+                                        activeFilters.calidadVida === level && styles.optionSelected,
                                     ]}
-                                    onPress={() => updateFilter('nse', level)}
+                                    onPress={() => updateFilter('calidadVida', level)}
                                 >
                                     <Text
                                         style={[
                                             styles.optionText,
-                                            activeFilters.nse === level && styles.optionTextSelected,
+                                            activeFilters.calidadVida === level && styles.optionTextSelected,
                                         ]}
                                     >
                                         {level}
@@ -191,8 +478,9 @@ export function SegmentationControls({
                         </View>
                     </View>
                 </View>
-            )}
-        </View>
+            )
+            }
+        </View >
     )
 }
 

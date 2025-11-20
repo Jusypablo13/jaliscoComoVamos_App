@@ -10,12 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
 type Props = {
   onAuthSuccess?: () => void
 }
 export function LoginScreen({ onAuthSuccess }: Props) {
+  const { loginAsGuest } = useAuthContext()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -93,7 +95,7 @@ export function LoginScreen({ onAuthSuccess }: Props) {
       setHasError(true)
       setFeedback(
         error?.message ??
-          'No pudimos procesar tu solicitud. Intenta de nuevo más tarde.'
+        'No pudimos procesar tu solicitud. Intenta de nuevo más tarde.'
       )
     } finally {
       setIsSubmitting(false)
@@ -182,6 +184,14 @@ export function LoginScreen({ onAuthSuccess }: Props) {
               ? '¿Ya tienes cuenta? Inicia sesión'
               : '¿Aún no tienes cuenta? Regístrate'}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={loginAsGuest}
+          disabled={isSubmitting}
+          style={styles.guestButton}
+        >
+          <Text style={styles.guestButtonText}>Continuar como invitado</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -280,5 +290,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: brandColors.accent,
     textDecorationLine: 'underline',
+  },
+  guestButton: {
+    marginTop: 24,
+    padding: 12,
+  },
+  guestButtonText: {
+    fontFamily: typography.emphasis,
+    fontSize: 14,
+    color: brandColors.text,
   },
 })
