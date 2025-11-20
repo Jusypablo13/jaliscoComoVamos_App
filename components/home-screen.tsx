@@ -14,19 +14,15 @@ import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
 
-type Registro = {
-    id: string
-    titulo: string
-    descripcion: string
-    created_at: string
-    autor_id: string
-}
+import { Database } from '../types/supabase'
 
-const DATA_TABLE_NAME = 'observatorio_registros'
+type EncuestaRow = Database['public']['Tables']['encuestalol']['Row']
+
+const DATA_TABLE_NAME = 'encuestalol'
 
 export function HomeScreen() {
     const { session, profile } = useAuthContext()
-    const [registros, setRegistros] = useState<Registro[]>([])
+    const [registros, setRegistros] = useState<EncuestaRow[]>([])
     const [titulo, setTitulo] = useState('')
     const [descripcion, setDescripcion] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -37,15 +33,18 @@ export function HomeScreen() {
     const fetchRegistros = useCallback(async () => {
         setLastError(null)
         setIsLoading(true)
+        // Fetching a subset of columns for display, or all if needed.
+        // Since the table structure is different (no 'titulo'/'descripcion'), 
+        // we'll just fetch everything or specific columns to show it works.
         const { data, error } = await supabase
             .from(DATA_TABLE_NAME)
-            .select('id, titulo, descripcion, created_at, autor_id')
-            .order('created_at', { ascending: false })
+            .select('*')
+            .limit(20)
 
         if (error) {
             console.error('Error fetching registros:', error)
             setLastError(
-                'No pudimos cargar la información. Verifica que la tabla observatorio_registros exista en Supabase.'
+                'No pudimos cargar la información. Verifica que la tabla encuestalol exista en Supabase.'
             )
             setRegistros([])
         } else if (data) {
@@ -66,40 +65,8 @@ export function HomeScreen() {
         setIsRefreshing(false)
     }, [fetchRegistros])
 
-    const handleSubmit = async () => {
-        if (!titulo.trim() || !descripcion.trim() || !session) {
-            Alert.alert('Completa los campos para guardar un registro.')
-            return
-        }
-
-        setIsSubmitting(true)
-
-        const payload = {
-            titulo: titulo.trim(),
-            descripcion: descripcion.trim(),
-            autor_id: session.user.id,
-        }
-
-        const { data, error } = await supabase
-            .from(DATA_TABLE_NAME)
-            .insert(payload)
-            .select()
-            .single()
-
-        if (error) {
-            console.error('Error saving registro:', error)
-            Alert.alert(
-                'No se pudo guardar',
-                'Verifica que tu usuario tenga permisos de inserción y que la tabla exista.'
-            )
-        } else if (data) {
-            setRegistros((prev) => [data, ...prev])
-            setTitulo('')
-            setDescripcion('')
-            Alert.alert('Registro guardado', 'Tu información se guardó correctamente.')
-        }
-        setIsSubmitting(false)
-    }
+    // Form logic removed as it doesn't match the new table schema
+    // You can implement a new form based on the 'encuestalol' columns later.
 
     return (
         <ScrollView
@@ -112,49 +79,9 @@ export function HomeScreen() {
                 <View style={{ flex: 1 }}>
                     <Text style={styles.welcomeTitle}>¡Hola, {profile?.full_name ?? session?.user.email}!</Text>
                     <Text style={styles.welcomeSubtitle}>
-                        Este panel se conecta con Supabase. Aquí puedes revisar y agregar registros que
-                        quedan respaldados en la nube del Observatorio.
+                        Conectado a la tabla 'encuestalol'. Aquí se muestran los últimos registros.
                     </Text>
                 </View>
-            </View>
-
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>Nuevo registro</Text>
-                <Text style={styles.cardSubtitle}>
-                    Captura hallazgos, ideas o cualquier seguimiento que quieras compartir con el equipo.
-                </Text>
-
-                <Text style={styles.label}>Título</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Indicador de movilidad"
-                    value={titulo}
-                    onChangeText={setTitulo}
-                    placeholderTextColor={brandColors.muted}
-                />
-
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Describe el hallazgo o la pregunta al observatorio…"
-                    value={descripcion}
-                    onChangeText={setDescripcion}
-                    placeholderTextColor={brandColors.muted}
-                    multiline
-                    numberOfLines={4}
-                />
-
-                <TouchableOpacity
-                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                    onPress={handleSubmit}
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? (
-                        <ActivityIndicator color={brandColors.surface} />
-                    ) : (
-                        <Text style={styles.buttonLabel}>Guardar en Supabase</Text>
-                    )}
-                </TouchableOpacity>
             </View>
 
             <View style={styles.card}>
@@ -165,17 +92,17 @@ export function HomeScreen() {
                     <Text style={styles.errorText}>{lastError}</Text>
                 ) : registros.length === 0 ? (
                     <Text style={styles.emptyText}>
-                        Aún no hay registros. ¡Comienza agregando el primero!
+                        Aún no hay registros.
                     </Text>
                 ) : (
-                    registros.map((registro) => (
-                        <View key={registro.id} style={styles.registroCard}>
-                            <Text style={styles.registroTitulo}>{registro.titulo}</Text>
+                    registros.map((registro, index) => (
+                        <View key={index} style={styles.registroCard}>
+                            <Text style={styles.registroTitulo}>Fecha: {registro.Date}</Text>
                             <Text style={styles.registroDescripcion}>
-                                {registro.descripcion}
+                                Duración: {registro.Duration} | Q_1: {registro.Q_1}
                             </Text>
                             <Text style={styles.registroMeta}>
-                                {new Date(registro.created_at).toLocaleString('es-MX')}
+                                Factor: {registro.FACTOR}
                             </Text>
                         </View>
                     ))
