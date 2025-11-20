@@ -375,6 +375,7 @@ export interface Database {
                     NSE2024: number
                     NSE2024_C: number
                     FACTOR: number
+                    MUNICIPIO: number // Added manually as requested
                 }
                 Insert: {
                     [key: string]: any
