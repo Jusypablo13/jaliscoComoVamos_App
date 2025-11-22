@@ -7,21 +7,20 @@ import {
     View,
 } from 'react-native'
 import { brandColors, typography } from '../../styles/theme'
-import { getMunicipios } from '../../types/supabase'
 
 type SegmentationControlsProps = {
     onFilterChange: (filters: Filters) => void
     activeFilters: Filters
 }
 
-type CalidadVida = 'buena' | 'regular' | 'mala' | number | undefined
+type CalidadVida = number | undefined
 
 type Filters = {
     sexo?: number
     nse?: number
     calidadVida?: CalidadVida
-    edad?: string | undefined
-    escolaridad?: string | undefined
+    edad?: number | undefined
+    escolaridad?: number | undefined
     municipio?: string | undefined
 }
 
@@ -42,15 +41,14 @@ export function SegmentationControls({
     ) => {
         onFilterChange({ ...activeFilters, [key]: val })
     }
-    const [municipios, setMunicipios] = useState<Array<{ id: number; nombre: string }>>([])
-
-    useEffect(() => {
-        const fetchMunicipios = async () => {
-            const municipios = await getMunicipios()
-            setMunicipios(municipios)
-        }
-        fetchMunicipios()
-    }, [])
+    const MUNICIPIOS = [
+        { id: 1, nombre: 'El Salto' },
+        { id: 2, nombre: 'Guadalajara' },
+        { id: 3, nombre: 'San Pedro Tlaquepaque' },
+        { id: 4, nombre: 'Tlajomulco de Zúñiga' },
+        { id: 5, nombre: 'Tonalá' },
+        { id: 6, nombre: 'Zapopan' },
+    ]
 
     return (
         <View style={styles.container}>
@@ -139,14 +137,14 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.calidadVida === 'buena' && styles.optionSelected,
+                                    activeFilters.calidadVida === 3 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('calidadVida', 'buena')}
+                                onPress={() => updateFilter('calidadVida', 3)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.calidadVida === 'buena' && styles.optionTextSelected,
+                                        activeFilters.calidadVida === 3 && styles.optionTextSelected,
                                     ]}
                                 >
                                     Buena
@@ -155,14 +153,14 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.calidadVida === 'regular' && styles.optionSelected,
+                                    activeFilters.calidadVida === 2 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('calidadVida', 'regular')}
+                                onPress={() => updateFilter('calidadVida', 2)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.calidadVida === 'regular' && styles.optionTextSelected,
+                                        activeFilters.calidadVida === 2 && styles.optionTextSelected,
                                     ]}
                                 >
                                     Regular
@@ -171,14 +169,14 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.calidadVida === 'mala' && styles.optionSelected,
+                                    activeFilters.calidadVida === 1 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('calidadVida', 'mala')}
+                                onPress={() => updateFilter('calidadVida', 1)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.calidadVida === 'mala' && styles.optionTextSelected,
+                                        activeFilters.calidadVida === 1 && styles.optionTextSelected,
                                     ]}
                                 >
                                     Mala
@@ -210,81 +208,65 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.edad === '18-24' && styles.optionSelected,
+                                    activeFilters.edad === 1 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('edad', '18-24')}
+                                onPress={() => updateFilter('edad', 1)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.edad === '18-24' && styles.optionTextSelected,
+                                        activeFilters.edad === 1 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    18-24
+                                    18-29
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.edad === '25-34' && styles.optionSelected,
+                                    activeFilters.edad === 2 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('edad', '25-34')}
+                                onPress={() => updateFilter('edad', 2)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.edad === '25-34' && styles.optionTextSelected,
+                                        activeFilters.edad === 2 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    25-34
+                                    30-44
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.edad === '35-44' && styles.optionSelected,
+                                    activeFilters.edad === 3 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('edad', '35-44')}
+                                onPress={() => updateFilter('edad', 3)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.edad === '35-44' && styles.optionTextSelected,
+                                        activeFilters.edad === 3 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    35-44
+                                    45-59
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.edad === '45-54' && styles.optionSelected,
+                                    activeFilters.edad === 4 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('edad', '45-54')}
+                                onPress={() => updateFilter('edad', 4)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.edad === '45-54' && styles.optionTextSelected,
+                                        activeFilters.edad === 4 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    45-54
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.option,
-                                    activeFilters.edad === '55+' && styles.optionSelected,
-                                ]}
-                                onPress={() => updateFilter('edad', '55+')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.optionText,
-                                        activeFilters.edad === '55+' && styles.optionTextSelected,
-                                    ]}
-                                >
-                                    55+
+                                    60+
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -313,81 +295,49 @@ export function SegmentationControls({
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.escolaridad === 'primaria' && styles.optionSelected,
+                                    activeFilters.escolaridad === 1 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('escolaridad', 'primaria')}
+                                onPress={() => updateFilter('escolaridad', 1)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.escolaridad === 'primaria' && styles.optionTextSelected,
+                                        activeFilters.escolaridad === 1 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    Primaria
+                                    Sec&lt;
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.escolaridad === 'secundaria' && styles.optionSelected,
+                                    activeFilters.escolaridad === 2 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('escolaridad', 'secundaria')}
+                                onPress={() => updateFilter('escolaridad', 2)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.escolaridad === 'secundaria' && styles.optionTextSelected,
+                                        activeFilters.escolaridad === 2 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    Secundaria
+                                    Prep
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.option,
-                                    activeFilters.escolaridad === 'preparatoria' && styles.optionSelected,
+                                    activeFilters.escolaridad === 3 && styles.optionSelected,
                                 ]}
-                                onPress={() => updateFilter('escolaridad', 'preparatoria')}
+                                onPress={() => updateFilter('escolaridad', 3)}
                             >
                                 <Text
                                     style={[
                                         styles.optionText,
-                                        activeFilters.escolaridad === 'preparatoria' && styles.optionTextSelected,
+                                        activeFilters.escolaridad === 3 && styles.optionTextSelected,
                                     ]}
                                 >
-                                    Preparatoria
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.option,
-                                    activeFilters.escolaridad === 'universidad' && styles.optionSelected,
-                                ]}
-                                onPress={() => updateFilter('escolaridad', 'universidad')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.optionText,
-                                        activeFilters.escolaridad === 'universidad' && styles.optionTextSelected,
-                                    ]}
-                                >
-                                    Universidad
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.option,
-                                    activeFilters.escolaridad === 'posgrado' && styles.optionSelected,
-                                ]}
-                                onPress={() => updateFilter('escolaridad', 'posgrado')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.optionText,
-                                        activeFilters.escolaridad === 'posgrado' && styles.optionTextSelected,
-                                    ]}
-                                >
-                                    Posgrado
+                                    Univ+
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -414,7 +364,7 @@ export function SegmentationControls({
                                     Todos
                                 </Text>
                             </TouchableOpacity>
-                            {municipios.map((municipio) => (
+                            {MUNICIPIOS.map((municipio) => (
                                 <TouchableOpacity
                                     key={municipio.id}
                                     style={[
@@ -435,48 +385,7 @@ export function SegmentationControls({
                             ))}
                         </View>
                     </View>
-                    {/* Calidad de Vida Filter*/}
-                    <View style={styles.filterGroup}>
-                        <Text style={styles.label}>Calidad de Vida</Text>
-                        <View style={styles.row}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.option,
-                                    activeFilters.calidadVida === undefined && styles.optionSelected,
-                                ]}
-                                onPress={() => updateFilter('calidadVida', undefined)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.optionText,
-                                        activeFilters.calidadVida === undefined &&
-                                        styles.optionTextSelected,
-                                    ]}
-                                >
-                                    Todos
-                                </Text>
-                            </TouchableOpacity>
-                            {[1, 2, 3, 4].map((level) => (
-                                <TouchableOpacity
-                                    key={level}
-                                    style={[
-                                        styles.option,
-                                        activeFilters.calidadVida === level && styles.optionSelected,
-                                    ]}
-                                    onPress={() => updateFilter('calidadVida', level)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.optionText,
-                                            activeFilters.calidadVida === level && styles.optionTextSelected,
-                                        ]}
-                                    >
-                                        {level}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
+
                 </View>
             )
             }

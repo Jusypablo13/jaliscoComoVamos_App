@@ -68,7 +68,7 @@ export function HomeScreen() {
         calidadVida?: number
         edad?: number
         escolaridad?: number
-        municipio?: number
+        municipio?: string
     }) => {
         setFilters((prev) => ({ ...prev, ...segFilters }))
     }
@@ -112,7 +112,11 @@ export function HomeScreen() {
                     onFilterChange={handleSegmentationChange}
                 />
 
-                <ResultsView result={result} isLoading={isLoading} />
+                <ResultsView
+                    result={result}
+                    isLoading={isLoading}
+                    currentFilters={filters}
+                />
             </ScrollView>
         </View>
     )

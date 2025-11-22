@@ -44,6 +44,24 @@ export interface Database {
                 }
             }
 
+            profiles: {
+                Row: {
+                    id: string
+                    full_name: string | null
+                    email: string | null
+                }
+                Insert: {
+                    id: string
+                    full_name: string
+                    email: string
+                }
+                Update: {
+                    id?: string
+                    full_name?: string
+                    email?: string
+                }
+            }
+
             encuestalol: {
                 Row: {
                     // Metadata
@@ -393,7 +411,7 @@ export interface Database {
                     NSE2024: number
                     NSE2024_C: number
                     FACTOR: number
-                    MUNICIPIO: number // Added manually as requested
+                    MUNICIPIO: string // Added manually as requested
                 }
                 Insert: {
                     [key: string]: any
