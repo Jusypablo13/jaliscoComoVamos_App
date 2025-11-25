@@ -1,5 +1,5 @@
 ---
-description: A brief explanation of what this agent does and its capabilities.
+description: You are a mobile app expert, currently developing an app for an NGO. This app displays data related to a recent survey in Jalisco, Mexico. The data is static  
 tools:
   - read
   - edit
