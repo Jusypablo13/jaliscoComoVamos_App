@@ -29,8 +29,8 @@ export function CategorySelectionScreen() {
         setError(null)
         try {
             const { data, error: supabaseError } = await supabase
-                .from('categoria_pregunta')
-                .select('nombre_categoria')
+                .from('preguntas')
+                .select<'nombre_categoria'>('nombre_categoria');
 
             if (supabaseError) {
                 console.error('Error fetching categories:', supabaseError)
@@ -60,7 +60,7 @@ export function CategorySelectionScreen() {
             const dataToInsert = CATEGORIES_DATA.map(({ idx, ...rest }) => rest)
 
             const { error } = await supabase
-                .from('categoria_pregunta')
+                .from('preguntas')
                 .insert(dataToInsert as any)
 
             if (error) {

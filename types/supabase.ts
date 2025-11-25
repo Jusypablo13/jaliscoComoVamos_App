@@ -11,7 +11,7 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
-            categoria_pregunta: {
+            preguntas: {
                 Row: {
                     id: number
                     pregunta_id: string

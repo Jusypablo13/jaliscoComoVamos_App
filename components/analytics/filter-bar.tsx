@@ -49,7 +49,7 @@ export function FilterBar({
 
     const fetchCategories = async () => {
         const { data } = await supabase
-            .from('categoria_pregunta')
+            .from('preguntas')
             .select('nombre_categoria')
 
         if (data) {
@@ -63,7 +63,7 @@ export function FilterBar({
 
     const fetchQuestionsForTheme = async (theme: string) => {
         const { data } = await supabase
-            .from('categoria_pregunta')
+            .from('preguntas')
             .select('*')
             .eq('nombre_categoria', theme)
 
