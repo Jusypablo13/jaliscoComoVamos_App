@@ -54,7 +54,7 @@ export const AnalyticsService = {
 
             // We fetch all matching rows to aggregate client-side
             // In a real large-scale app, this should be a Postgres function (RPC)
-            console.log('Fetching analytics data with filters:', filters)
+            // console.log('Fetching analytics data with filters:', filters)
             const { data, error } = await query
 
             if (error) {
@@ -62,9 +62,9 @@ export const AnalyticsService = {
                 throw error
             }
 
-            console.log('Fetched data count:', data?.length)
+            // console.log('Fetched data count:', data?.length)
             if (data && data.length > 0) {
-                console.log('Sample row:', data[0])
+                // console.log('Sample row:', data[0])
             }
 
             if (!data || data.length === 0) {
