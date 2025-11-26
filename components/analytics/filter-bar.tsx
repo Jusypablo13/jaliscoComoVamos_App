@@ -18,10 +18,9 @@ type FilterBarProps = {
     selectedQuestion: string | null
 }
 
-type Category = {
-    nombre_categoria: string
+type Question = {
     pregunta_id: string
-    // We might need more metadata later
+    texto_pregunta: string | null
 }
 
 export function FilterBar({
@@ -32,7 +31,7 @@ export function FilterBar({
     selectedQuestion,
 }: FilterBarProps) {
     const [categories, setCategories] = useState<string[]>([])
-    const [questions, setQuestions] = useState<Category[]>([])
+    const [questions, setQuestions] = useState<Question[]>([])
     const [searchQuery, setSearchQuery] = useState('')
 
     useEffect(() => {
@@ -64,7 +63,7 @@ export function FilterBar({
     const fetchQuestionsForTheme = async (theme: string) => {
         const { data } = await supabase
             .from('preguntas')
-            .select('*')
+            .select('pregunta_id, texto_pregunta')
             .eq('nombre_categoria', theme)
 
         if (data) {
@@ -133,30 +132,29 @@ export function FilterBar({
             {/* Question Selector (Only if theme selected) */}
             {selectedTheme && questions.length > 0 && (
                 <View style={styles.section}>
-                    <Text style={styles.label}>Pregunta</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <Text style={styles.label}>Preguntas</Text>
+                    <View style={styles.questionsList}>
                         {questions.map((q) => (
                             <TouchableOpacity
                                 key={q.pregunta_id}
                                 style={[
-                                    styles.chip,
-                                    styles.questionChip,
-                                    selectedQuestion === q.pregunta_id && styles.chipSelected,
+                                    styles.questionItem,
+                                    selectedQuestion === q.pregunta_id && styles.questionItemSelected,
                                 ]}
                                 onPress={() => onQuestionSelect(q.pregunta_id)}
                             >
                                 <Text
                                     style={[
-                                        styles.chipText,
+                                        styles.questionText,
                                         selectedQuestion === q.pregunta_id &&
-                                        styles.chipTextSelected,
+                                        styles.questionTextSelected,
                                     ]}
                                 >
-                                    {q.pregunta_id}
+                                    {q.texto_pregunta || q.pregunta_id}
                                 </Text>
                             </TouchableOpacity>
                         ))}
-                    </ScrollView>
+                    </View>
                 </View>
             )}
         </View>
@@ -200,9 +198,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'transparent',
     },
-    questionChip: {
-        backgroundColor: '#EEF2FF',
-    },
     chipSelected: {
         backgroundColor: brandColors.primary,
         borderColor: brandColors.primary,
@@ -213,6 +208,32 @@ const styles = StyleSheet.create({
         color: brandColors.text,
     },
     chipTextSelected: {
+        color: brandColors.surface,
+        fontFamily: typography.emphasis,
+    },
+    questionsList: {
+        flexDirection: 'column',
+        gap: 8,
+    },
+    questionItem: {
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 8,
+        backgroundColor: '#EEF2FF',
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    questionItemSelected: {
+        backgroundColor: brandColors.primary,
+        borderColor: brandColors.primary,
+    },
+    questionText: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.text,
+        lineHeight: 20,
+    },
+    questionTextSelected: {
         color: brandColors.surface,
         fontFamily: typography.emphasis,
     },
