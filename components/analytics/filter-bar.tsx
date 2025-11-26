@@ -150,7 +150,7 @@ export function FilterBar({
                                         styles.questionTextSelected,
                                     ]}
                                 >
-                                    {q.texto_pregunta || q.pregunta_id}
+                                    {q.texto_pregunta?.trim() || q.pregunta_id}
                                 </Text>
                             </TouchableOpacity>
                         ))}
