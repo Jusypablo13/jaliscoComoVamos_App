@@ -168,26 +168,37 @@ export const AnalyticsService = {
     },
 
     /**
-     * Fetches the distribution of responses for a single question (global ZMG, no filters).
+     * Fetches the distribution of responses for a single question.
+     * Optionally filters by municipality using the Q_94 column.
      * This function:
      * 1. Queries Supabase for all responses to the specified question column
-     * 2. Calculates distribution counts for each response value
-     * 3. Calculates percentages excluding NS/NC responses
+     * 2. Optionally filters by municipality (Q_94 = municipioId)
+     * 3. Calculates distribution counts for each response value
+     * 4. Calculates percentages excluding NS/NC responses
      * 
      * @param questionId - The numeric ID of the question (e.g., 31)
      * @param column - The column name in the encuesta table (e.g., "Q_31")
+     * @param municipioId - Optional municipality ID (1-6) to filter results. If undefined, returns global ZMG results.
      * @returns QuestionDistribution object with counts and percentages
      */
     async fetchQuestionDistribution(
         questionId: number,
-        column: string
+        column: string,
+        municipioId?: number
     ): Promise<QuestionDistribution | null> {
         try {
-            // Fetch only the column we need from encuestalol (no filters applied)
-            const { data, error } = await supabase
+            // Fetch the column we need from encuestalol, optionally filtered by municipality
+            let query = supabase
                 .from('encuestalol')
                 .select(column)
                 .limit(3000);
+
+            // Apply municipality filter if provided (Q_94 is the municipality column)
+            if (municipioId !== undefined) {
+                query = query.eq('Q_94', municipioId);
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error('Error fetching question distribution:', error)
