@@ -108,13 +108,13 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const animateChartTransition = () => {
         Animated.sequence([
             Animated.timing(fadeAnim, {
-                toValue: 0.3,
-                duration: 150,
+                toValue: 0.6,
+                duration: 120,
                 useNativeDriver: true,
             }),
             Animated.timing(fadeAnim, {
                 toValue: 1,
-                duration: 300,
+                duration: 120,
                 useNativeDriver: true,
             }),
         ]).start()
