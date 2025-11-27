@@ -60,9 +60,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
 
     const handleQuestionSelect = (question: Question) => {
-        // Extract numeric ID from pregunta_id (e.g., "Q_31" -> 31, "T_Q_12_1" -> 12)
-        // For simplicity, we use the database id if available, or parse the column name
-        const numericId = question.id ?? (parseInt(question.pregunta_id.replace(/[^0-9]/g, ''), 10) || 0)
+        // Use the database id when available (preferred), as it's reliable
+        // If not available, fall back to parsing the column name (legacy support)
+        const numericId = question.id !== undefined ? question.id : 0
         
         navigation.navigate('QuestionDetail', { 
             questionId: numericId,

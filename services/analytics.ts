@@ -3,6 +3,19 @@ import { Database } from '../types/supabase'
 
 type EncuestaRow = Database['public']['Tables']['encuestalol']['Row']
 
+/**
+ * Helper function to safely access a dynamic column value from a row.
+ * Since survey columns are accessed dynamically by column name, we need
+ * to use indexed access which TypeScript cannot type-check at compile time.
+ * 
+ * @param row - The row object from Supabase query
+ * @param column - The column name to access
+ * @returns The value at the column, or undefined if not present
+ */
+function getColumnValue(row: Record<string, unknown>, column: string): unknown {
+    return row[column]
+}
+
 export type AnalyticsFilters = {
     theme?: string
     questionId?: string
@@ -23,8 +36,18 @@ export type AggregatedResult = {
     breakdown: { label: string; value: number }[]
 }
 
-// NS/NC special values that should be excluded from percentage calculations
-const NS_NC_VALUES = [99, 98, -1, 0] // Common codes for NS/NC (No sabe/No contesta)
+/**
+ * NS/NC (No sabe/No contesta) special values that should be excluded from percentage calculations.
+ * These are standard codes used in survey methodology:
+ * - 99: Common code for "No sabe" (Don't know)
+ * - 98: Common code for "No contesta" (No answer/Refused)
+ * - -1: Alternative code for missing/invalid response
+ * - 0: Alternative code for no response in some survey designs
+ * 
+ * Note: These values are specific to the survey design of Jalisco Cómo Vamos.
+ * Modify this array if the survey methodology changes.
+ */
+const NS_NC_VALUES = [99, 98, -1, 0]
 
 export type QuestionDistributionItem = {
     value: number
@@ -107,13 +130,16 @@ export const AnalyticsService = {
 
     aggregateQuestion(data: EncuestaRow[], questionId: string): AggregatedResult {
         const validData = data.filter((row) => {
-            const val = (row as any)[questionId]
+            const val = getColumnValue(row as Record<string, unknown>, questionId)
             return typeof val === 'number' && !isNaN(val)
         })
 
         const sampleSize = validData.length
         const total = validData.reduce(
-            (sum, row) => sum + ((row as any)[questionId] as number),
+            (sum, row) => {
+                const val = getColumnValue(row as Record<string, unknown>, questionId)
+                return sum + (typeof val === 'number' ? val : 0)
+            },
             0
         )
         const average = sampleSize > 0 ? total / sampleSize : 0
@@ -122,8 +148,10 @@ export const AnalyticsService = {
         // This assumes the question is a scale or categorical numeric
         const distribution: Record<string, number> = {}
         validData.forEach((row) => {
-            const val = (row as any)[questionId]
-            distribution[val] = (distribution[val] || 0) + 1
+            const val = getColumnValue(row as Record<string, unknown>, questionId)
+            if (typeof val === 'number') {
+                distribution[val] = (distribution[val] || 0) + 1
+            }
         })
 
         const breakdown = Object.entries(distribution).map(([label, value]) => ({
@@ -175,7 +203,7 @@ export const AnalyticsService = {
             let totalResponses = 0
 
             data.forEach((row) => {
-                const val = (row as any)[column]
+                const val = getColumnValue(row as Record<string, unknown>, column)
                 if (typeof val === 'number' && !isNaN(val)) {
                     valueCounts[val] = (valueCounts[val] || 0) + 1
                     totalResponses++
