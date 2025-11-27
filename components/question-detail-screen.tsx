@@ -15,7 +15,11 @@ import {
     QuestionDistribution,
     GroupedQuestionDistribution,
     QuestionDistributionItem,
+    QuestionDistributionFilters,
     distributionToBarData,
+    AGE_RANGES,
+    EDUCATION_GROUPS,
+    QUALITY_OF_LIFE_GROUPS,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
@@ -40,6 +44,24 @@ const SEXOS = [
     { id: 2, nombre: 'Mujer' },
 ]
 
+// Age range options
+const EDADES = [
+    { id: undefined, nombre: 'Todos' },
+    ...Object.values(AGE_RANGES).map(range => ({ id: range.id, nombre: range.label })),
+]
+
+// Education level options
+const ESCOLARIDADES = [
+    { id: undefined, nombre: 'Todos' },
+    ...Object.values(EDUCATION_GROUPS).map(group => ({ id: group.id, nombre: group.label })),
+]
+
+// Quality of life options
+const CALIDADES_VIDA = [
+    { id: undefined, nombre: 'Todos' },
+    ...Object.values(QUALITY_OF_LIFE_GROUPS).map(group => ({ id: group.id, nombre: group.label })),
+]
+
 export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const { questionId, column, questionText } = route.params
 
@@ -50,6 +72,9 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [error, setError] = useState<string | null>(null)
     const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
     const [selectedSexoId, setSelectedSexoId] = useState<number | undefined>(undefined)
+    const [selectedEdadRangeId, setSelectedEdadRangeId] = useState<number | undefined>(undefined)
+    const [selectedEscolaridadGroupId, setSelectedEscolaridadGroupId] = useState<number | undefined>(undefined)
+    const [selectedCalidadVidaGroupId, setSelectedCalidadVidaGroupId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
 
@@ -60,9 +85,18 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Track if this is the initial load
     const isInitialLoad = useRef(true)
 
+    // Build filters object for API calls
+    const buildFilters = (): QuestionDistributionFilters => ({
+        municipioId: selectedMunicipioId,
+        sexoId: selectedSexoId,
+        edadRangeId: selectedEdadRangeId,
+        escolaridadGroupId: selectedEscolaridadGroupId,
+        calidadVidaGroupId: selectedCalidadVidaGroupId,
+    })
+
     useEffect(() => {
         fetchDistribution()
-    }, [questionId, column, selectedMunicipioId, selectedSexoId, showGroupedBySexo]);
+    }, [questionId, column, selectedMunicipioId, selectedSexoId, selectedEdadRangeId, selectedEscolaridadGroupId, selectedCalidadVidaGroupId, showGroupedBySexo]);
 
     // Compute grouped table rows data for the cross-table view
     const groupedTableRows = useMemo(() => {
@@ -139,13 +173,15 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         }
         
         setError(null)
+        const filters = buildFilters()
+        
         try {
             if (showGroupedBySexo) {
                 // Fetch grouped distribution by sexo
                 const data = await AnalyticsService.fetchQuestionDistributionGroupedBySexo(
                     questionId, 
                     column, 
-                    selectedMunicipioId
+                    filters
                 )
                 if (data) {
                     // Animate chart transition
@@ -158,12 +194,11 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     setError('No se encontraron datos para esta pregunta.')
                 }
             } else {
-                // Fetch simple distribution with optional sexo filter
+                // Fetch simple distribution with optional filters
                 const data = await AnalyticsService.fetchQuestionDistribution(
                     questionId, 
                     column, 
-                    selectedMunicipioId, 
-                    selectedSexoId
+                    filters
                 )
                 if (data) {
                     // Animate chart transition
@@ -199,6 +234,45 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const getSelectedSexoName = () => {
         const sexo = SEXOS.find(s => s.id === selectedSexoId)
         return sexo?.nombre || SEXOS[0].nombre
+    }
+
+    const getSelectedEdadName = () => {
+        const edad = EDADES.find(e => e.id === selectedEdadRangeId)
+        return edad?.nombre || EDADES[0].nombre
+    }
+
+    const getSelectedEscolaridadName = () => {
+        const escolaridad = ESCOLARIDADES.find(e => e.id === selectedEscolaridadGroupId)
+        return escolaridad?.nombre || ESCOLARIDADES[0].nombre
+    }
+
+    const getSelectedCalidadVidaName = () => {
+        const calidadVida = CALIDADES_VIDA.find(c => c.id === selectedCalidadVidaGroupId)
+        return calidadVida?.nombre || CALIDADES_VIDA[0].nombre
+    }
+
+    // Get a summary of active filters for display
+    const getActiveFiltersText = () => {
+        const parts: string[] = []
+        if (selectedMunicipioId !== undefined) {
+            parts.push(`Municipio: ${getSelectedMunicipioName()}`)
+        }
+        if (!showGroupedBySexo && selectedSexoId !== undefined) {
+            parts.push(`Sexo: ${getSelectedSexoName()}`)
+        }
+        if (selectedEdadRangeId !== undefined) {
+            parts.push(`Edad: ${getSelectedEdadName()}`)
+        }
+        if (selectedEscolaridadGroupId !== undefined) {
+            parts.push(`Escolaridad: ${getSelectedEscolaridadName()}`)
+        }
+        if (selectedCalidadVidaGroupId !== undefined) {
+            parts.push(`Calidad de vida: ${getSelectedCalidadVidaName()}`)
+        }
+        if (showGroupedBySexo) {
+            parts.push('Agrupado por Sexo')
+        }
+        return parts.length > 0 ? parts.join(' | ') : 'Sin filtros activos'
     }
 
     if (isLoading) {
@@ -334,19 +408,94 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 </View>
             </View>
 
+            {/* Edad (Age) Filter */}
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Edad</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    <View style={styles.filterOptions}>
+                        {EDADES.map((edad) => (
+                            <TouchableOpacity
+                                key={edad.id ?? 'all'}
+                                style={[
+                                    styles.filterOption,
+                                    selectedEdadRangeId === edad.id && styles.filterOptionSelected,
+                                ]}
+                                onPress={() => setSelectedEdadRangeId(edad.id)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.filterOptionText,
+                                        selectedEdadRangeId === edad.id && styles.filterOptionTextSelected,
+                                    ]}
+                                >
+                                    {edad.nombre}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </ScrollView>
+            </View>
+
+            {/* Escolaridad (Education) Filter */}
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Escolaridad</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    <View style={styles.filterOptions}>
+                        {ESCOLARIDADES.map((escolaridad) => (
+                            <TouchableOpacity
+                                key={escolaridad.id ?? 'all'}
+                                style={[
+                                    styles.filterOption,
+                                    selectedEscolaridadGroupId === escolaridad.id && styles.filterOptionSelected,
+                                ]}
+                                onPress={() => setSelectedEscolaridadGroupId(escolaridad.id)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.filterOptionText,
+                                        selectedEscolaridadGroupId === escolaridad.id && styles.filterOptionTextSelected,
+                                    ]}
+                                >
+                                    {escolaridad.nombre}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </ScrollView>
+            </View>
+
+            {/* Calidad de Vida (Quality of Life) Filter */}
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Calidad de Vida</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    <View style={styles.filterOptions}>
+                        {CALIDADES_VIDA.map((calidadVida) => (
+                            <TouchableOpacity
+                                key={calidadVida.id ?? 'all'}
+                                style={[
+                                    styles.filterOption,
+                                    selectedCalidadVidaGroupId === calidadVida.id && styles.filterOptionSelected,
+                                ]}
+                                onPress={() => setSelectedCalidadVidaGroupId(calidadVida.id)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.filterOptionText,
+                                        selectedCalidadVidaGroupId === calidadVida.id && styles.filterOptionTextSelected,
+                                    ]}
+                                >
+                                    {calidadVida.nombre}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </ScrollView>
+            </View>
+
             {/* Active Filters Label */}
             <View style={styles.activeMunicipioContainer}>
                 <Text style={styles.activeMunicipioLabel}>
-                    {'Municipio: '}
-                    <Text style={styles.activeMunicipioValue}>{getSelectedMunicipioName()}</Text>
-                    {!showGroupedBySexo && ' | Sexo: '}
-                    {!showGroupedBySexo && (
-                        <Text style={styles.activeMunicipioValue}>{getSelectedSexoName()}</Text>
-                    )}
-                    {showGroupedBySexo && ' | '}
-                    {showGroupedBySexo && (
-                        <Text style={styles.activeMunicipioValue}>Agrupado por Sexo</Text>
-                    )}
+                    {getActiveFiltersText()}
                 </Text>
             </View>
 
