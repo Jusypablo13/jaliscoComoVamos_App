@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
+    Animated,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,8 +15,10 @@ import {
     QuestionDistribution,
     GroupedQuestionDistribution,
     QuestionDistributionItem,
+    distributionToBarData,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
+import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
@@ -43,10 +46,19 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false) // For overlay loading on filter change
     const [error, setError] = useState<string | null>(null)
     const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
     const [selectedSexoId, setSelectedSexoId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
+    const [showTable, setShowTable] = useState(false)
+
+    // Animation values for smooth transitions
+    const fadeAnim = useRef(new Animated.Value(1)).current
+    const overlayOpacity = useRef(new Animated.Value(0)).current
+
+    // Track if this is the initial load
+    const isInitialLoad = useRef(true)
 
     useEffect(() => {
         fetchDistribution()
@@ -84,8 +96,48 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         })
     }, [groupedDistribution]);
 
+    // Compute bar chart data from distribution
+    // Options are static so only distribution needs to be in dependency array
+    const barChartData = useMemo(() => {
+        if (!distribution) return []
+        return distributionToBarData(distribution, { includeNsNc: false })
+    }, [distribution])
+
+
+    // Animation helper for chart transitions
+    const animateChartTransition = () => {
+        Animated.sequence([
+            Animated.timing(fadeAnim, {
+                toValue: 0.6,
+                duration: 120,
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 120,
+                useNativeDriver: true,
+            }),
+        ]).start()
+    }
+
     const fetchDistribution = async () => {
-        setIsLoading(true)
+        // Determine if this is initial load or a filter change
+        const hasExistingData = distribution !== null || groupedDistribution !== null
+        
+        if (isInitialLoad.current || !hasExistingData) {
+            // Initial load - show full loading screen
+            setIsLoading(true)
+            isInitialLoad.current = false
+        } else {
+            // Filter change - show overlay on existing chart
+            setIsRefreshing(true)
+            Animated.timing(overlayOpacity, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start()
+        }
+        
         setError(null)
         try {
             if (showGroupedBySexo) {
@@ -96,6 +148,10 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     selectedMunicipioId
                 )
                 if (data) {
+                    // Animate chart transition
+                    if (hasExistingData) {
+                        animateChartTransition()
+                    }
                     setGroupedDistribution(data)
                     setDistribution(null)
                 } else {
@@ -110,6 +166,10 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     selectedSexoId
                 )
                 if (data) {
+                    // Animate chart transition
+                    if (hasExistingData) {
+                        animateChartTransition()
+                    }
                     setDistribution(data)
                     setGroupedDistribution(null)
                 } else {
@@ -121,6 +181,13 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             setError('Error al cargar los datos.')
         } finally {
             setIsLoading(false)
+            setIsRefreshing(false)
+            // Hide overlay
+            Animated.timing(overlayOpacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start()
         }
     }
 
@@ -147,6 +214,9 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchDistribution}>
+                    <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
             </View>
         )
     }
@@ -295,47 +365,84 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
                     </View>
 
-                    {/* Distribution Table */}
-                    <View style={styles.tableContainer}>
-                        <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
-                        
-                        {/* Table Header */}
-                        <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
-                            <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
-                            <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
+                    {/* Bar Chart with Loading Overlay */}
+                    {barChartData.length > 0 && (
+                        <View style={styles.chartSection}>
+                            <Animated.View style={{ opacity: fadeAnim }}>
+                                <DiscreteBarChart
+                                    data={barChartData}
+                                    title="Distribución de Respuestas"
+                                    subtitle={`N válido = ${distribution.nValid}`}
+                                />
+                            </Animated.View>
+                            {/* Loading Overlay */}
+                            {isRefreshing && (
+                                <Animated.View 
+                                    style={[
+                                        styles.chartOverlay,
+                                        { opacity: overlayOpacity }
+                                    ]}
+                                >
+                                    <ActivityIndicator size="large" color={brandColors.primary} />
+                                    <Text style={styles.overlayText}>Actualizando...</Text>
+                                </Animated.View>
+                            )}
                         </View>
+                    )}
 
-                        {/* Table Rows */}
-                        {distribution.distribution.map((item, index) => (
-                            <View 
-                                key={item.value} 
-                                style={[
-                                    styles.tableRow,
-                                    index % 2 === 0 && styles.tableRowEven,
-                                    item.isNsNc && styles.tableRowNsNc,
-                                ]}
-                            >
-                                <Text style={[styles.tableCell, styles.valueColumn]}>
-                                    {item.value}
-                                    {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                </Text>
-                                <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
-                                <Text style={[styles.tableCell, styles.percentColumn]}>
-                                    {item.isNsNc ? '—' : `${item.percentage}%`}
+                    {/* Toggle Button for Table View */}
+                    <TouchableOpacity
+                        style={styles.tableToggleButton}
+                        onPress={() => setShowTable(!showTable)}
+                    >
+                        <Text style={styles.tableToggleText}>
+                            {showTable ? 'Ocultar tabla de datos' : 'Ver resultados en tabla'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Distribution Table (Hidden by default) */}
+                    {showTable && (
+                        <View style={styles.tableContainer}>
+                            <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
+                            
+                            {/* Table Header */}
+                            <View style={styles.tableHeader}>
+                                <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                                <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
+                                <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
+                            </View>
+
+                            {/* Table Rows */}
+                            {distribution.distribution.map((item, index) => (
+                                <View 
+                                    key={item.value} 
+                                    style={[
+                                        styles.tableRow,
+                                        index % 2 === 0 && styles.tableRowEven,
+                                        item.isNsNc && styles.tableRowNsNc,
+                                    ]}
+                                >
+                                    <Text style={[styles.tableCell, styles.valueColumn]}>
+                                        {item.value}
+                                        {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
+                                    <Text style={[styles.tableCell, styles.percentColumn]}>
+                                        {item.isNsNc ? '—' : `${item.percentage}%`}
+                                    </Text>
+                                </View>
+                            ))}
+
+                            {/* Table Footer */}
+                            <View style={styles.tableFooter}>
+                                <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
+                                <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
+                                <Text style={[styles.tableFooterCell, styles.percentColumn]}>
+                                    {percentageSum.toFixed(1)}%
                                 </Text>
                             </View>
-                        ))}
-
-                        {/* Table Footer */}
-                        <View style={styles.tableFooter}>
-                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
-                            <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
-                            <Text style={[styles.tableFooterCell, styles.percentColumn]}>
-                                {percentageSum.toFixed(1)}%
-                            </Text>
                         </View>
-                    </View>
+                    )}
 
                     {/* Methodological Note */}
                     <View style={styles.noteContainer}>
@@ -476,6 +583,55 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: brandColors.muted,
         textAlign: 'center',
+    },
+    retryButton: {
+        marginTop: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: brandColors.primary,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.surface,
+    },
+    chartSection: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        position: 'relative',
+    },
+    chartOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 16,
+    },
+    overlayText: {
+        marginTop: 12,
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.muted,
+    },
+    tableToggleButton: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        paddingVertical: 12,
+        backgroundColor: brandColors.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: brandColors.primary,
+        alignItems: 'center',
+    },
+    tableToggleText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.primary,
     },
     header: {
         padding: 16,

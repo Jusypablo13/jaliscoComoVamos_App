@@ -98,6 +98,40 @@ export type GroupedQuestionDistribution = {
     groups: GroupedDistributionItem[]
 }
 
+// Import BarDatum type from discrete-bar-chart to avoid duplication
+import type { BarDatum } from '../components/analytics/discrete-bar-chart'
+// Re-export for convenience
+export type { BarDatum }
+
+/**
+ * Adapter function that transforms QuestionDistribution data to BarDatum[] format
+ * for use with the DiscreteBarChart component.
+ * 
+ * This is a pure function that can be easily tested without UI.
+ * 
+ * @param distribution - The QuestionDistribution data from Supabase
+ * @param options - Optional configuration for the transformation
+ * @param options.includeNsNc - Whether to include NS/NC responses (default: false)
+ * @param options.nsNcLabel - Label to use for NS/NC responses (default: 'NS/NC')
+ * @returns Array of BarDatum objects for the chart
+ */
+export function distributionToBarData(
+    distribution: QuestionDistribution,
+    options?: {
+        includeNsNc?: boolean
+        nsNcLabel?: string
+    }
+): BarDatum[] {
+    const { includeNsNc = false, nsNcLabel = 'NS/NC' } = options || {}
+
+    return distribution.distribution
+        .filter((item) => includeNsNc || !item.isNsNc)
+        .map((item) => ({
+            label: item.isNsNc ? nsNcLabel : String(item.value),
+            value: item.percentage,
+        }))
+}
+
 export const AnalyticsService = {
     async fetchAggregatedData(
         filters: AnalyticsFilters
