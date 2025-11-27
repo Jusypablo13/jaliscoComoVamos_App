@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { HomeScreen } from './home-screen'
 import { ProfileScreen } from './profile-screen'
 import { QuestionDetailScreen } from './question-detail-screen'
+import { BarChartPreview } from '../bar-chart-preview'
 import { brandColors } from '../styles/theme'
 import { Ionicons } from '@expo/vector-icons'
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,6 +19,11 @@ function HomeScreenAndNavigator() {
                 name="QuestionDetail" 
                 component={QuestionDetailScreen}
                 options={{ title: 'Detalle de Pregunta' }}
+            />
+            <Stack.Screen 
+                name="BarChartPreview" 
+                component={BarChartPreview}
+                options={{ title: 'Vista Previa: Gráfica de Barras' }}
             />
         </Stack.Navigator>
     );
