@@ -14,8 +14,10 @@ import {
     QuestionDistribution,
     GroupedQuestionDistribution,
     QuestionDistributionItem,
+    distributionToBarData,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
+import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
@@ -47,6 +49,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
     const [selectedSexoId, setSelectedSexoId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
+    const [showTable, setShowTable] = useState(false)
 
     useEffect(() => {
         fetchDistribution()
@@ -147,6 +150,9 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchDistribution}>
+                    <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
             </View>
         )
     }
@@ -165,6 +171,12 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             .filter(item => !item.isNsNc)
             .reduce((sum, item) => sum + item.percentage, 0)
         : 0
+
+    // Compute bar chart data from distribution
+    const barChartData = useMemo(() => {
+        if (!distribution) return []
+        return distributionToBarData(distribution, { includeNsNc: false })
+    }, [distribution])
 
     return (
         <ScrollView style={styles.container}>
@@ -295,47 +307,70 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
                     </View>
 
-                    {/* Distribution Table */}
-                    <View style={styles.tableContainer}>
-                        <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
-                        
-                        {/* Table Header */}
-                        <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
-                            <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
-                            <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
+                    {/* Bar Chart */}
+                    {barChartData.length > 0 && (
+                        <View style={styles.chartSection}>
+                            <DiscreteBarChart
+                                data={barChartData}
+                                title="Distribución de Respuestas"
+                                subtitle={`N válido = ${distribution.nValid}`}
+                            />
                         </View>
+                    )}
 
-                        {/* Table Rows */}
-                        {distribution.distribution.map((item, index) => (
-                            <View 
-                                key={item.value} 
-                                style={[
-                                    styles.tableRow,
-                                    index % 2 === 0 && styles.tableRowEven,
-                                    item.isNsNc && styles.tableRowNsNc,
-                                ]}
-                            >
-                                <Text style={[styles.tableCell, styles.valueColumn]}>
-                                    {item.value}
-                                    {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                </Text>
-                                <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
-                                <Text style={[styles.tableCell, styles.percentColumn]}>
-                                    {item.isNsNc ? '—' : `${item.percentage}%`}
+                    {/* Toggle Button for Table View */}
+                    <TouchableOpacity
+                        style={styles.tableToggleButton}
+                        onPress={() => setShowTable(!showTable)}
+                    >
+                        <Text style={styles.tableToggleText}>
+                            {showTable ? 'Ocultar tabla de datos' : 'Ver resultados en tabla'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Distribution Table (Hidden by default) */}
+                    {showTable && (
+                        <View style={styles.tableContainer}>
+                            <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
+                            
+                            {/* Table Header */}
+                            <View style={styles.tableHeader}>
+                                <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                                <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
+                                <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
+                            </View>
+
+                            {/* Table Rows */}
+                            {distribution.distribution.map((item, index) => (
+                                <View 
+                                    key={item.value} 
+                                    style={[
+                                        styles.tableRow,
+                                        index % 2 === 0 && styles.tableRowEven,
+                                        item.isNsNc && styles.tableRowNsNc,
+                                    ]}
+                                >
+                                    <Text style={[styles.tableCell, styles.valueColumn]}>
+                                        {item.value}
+                                        {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
+                                    <Text style={[styles.tableCell, styles.percentColumn]}>
+                                        {item.isNsNc ? '—' : `${item.percentage}%`}
+                                    </Text>
+                                </View>
+                            ))}
+
+                            {/* Table Footer */}
+                            <View style={styles.tableFooter}>
+                                <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
+                                <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
+                                <Text style={[styles.tableFooterCell, styles.percentColumn]}>
+                                    {percentageSum.toFixed(1)}%
                                 </Text>
                             </View>
-                        ))}
-
-                        {/* Table Footer */}
-                        <View style={styles.tableFooter}>
-                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
-                            <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
-                            <Text style={[styles.tableFooterCell, styles.percentColumn]}>
-                                {percentageSum.toFixed(1)}%
-                            </Text>
                         </View>
-                    </View>
+                    )}
 
                     {/* Methodological Note */}
                     <View style={styles.noteContainer}>
@@ -476,6 +511,37 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: brandColors.muted,
         textAlign: 'center',
+    },
+    retryButton: {
+        marginTop: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: brandColors.primary,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.surface,
+    },
+    chartSection: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+    },
+    tableToggleButton: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        paddingVertical: 12,
+        backgroundColor: brandColors.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: brandColors.primary,
+        alignItems: 'center',
+    },
+    tableToggleText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.primary,
     },
     header: {
         padding: 16,
