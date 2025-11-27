@@ -96,6 +96,22 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         })
     }, [groupedDistribution]);
 
+    // Animation helper for chart transitions
+    const animateChartTransition = () => {
+        Animated.sequence([
+            Animated.timing(fadeAnim, {
+                toValue: 0.3,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+        ]).start()
+    }
+
     const fetchDistribution = async () => {
         // Determine if this is initial load or a filter change
         const hasExistingData = distribution !== null || groupedDistribution !== null
@@ -126,18 +142,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 if (data) {
                     // Animate chart transition
                     if (hasExistingData) {
-                        Animated.sequence([
-                            Animated.timing(fadeAnim, {
-                                toValue: 0.3,
-                                duration: 150,
-                                useNativeDriver: true,
-                            }),
-                            Animated.timing(fadeAnim, {
-                                toValue: 1,
-                                duration: 300,
-                                useNativeDriver: true,
-                            }),
-                        ]).start()
+                        animateChartTransition()
                     }
                     setGroupedDistribution(data)
                     setDistribution(null)
@@ -155,18 +160,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 if (data) {
                     // Animate chart transition
                     if (hasExistingData) {
-                        Animated.sequence([
-                            Animated.timing(fadeAnim, {
-                                toValue: 0.3,
-                                duration: 150,
-                                useNativeDriver: true,
-                            }),
-                            Animated.timing(fadeAnim, {
-                                toValue: 1,
-                                duration: 300,
-                                useNativeDriver: true,
-                            }),
-                        ]).start()
+                        animateChartTransition()
                     }
                     setDistribution(data)
                     setGroupedDistribution(null)
@@ -616,7 +610,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 16,
-        marginHorizontal: 16,
     },
     overlayText: {
         marginTop: 12,
