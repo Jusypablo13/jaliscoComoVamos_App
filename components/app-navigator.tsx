@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { HomeScreen } from './home-screen'
 import { ProfileScreen } from './profile-screen'
+import { QuestionDetailScreen } from './question-detail-screen'
 import { brandColors } from '../styles/theme'
 import { Ionicons } from '@expo/vector-icons'
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,6 +32,11 @@ function HomeScreenAndNavigator() {
         <Stack.Navigator initialRouteName="Home">
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="Details" component={EmptyView} />
+            <Stack.Screen 
+                name="QuestionDetail" 
+                component={QuestionDetailScreen}
+                options={{ title: 'Detalle de Pregunta' }}
+            />
         </Stack.Navigator>
     );
 }

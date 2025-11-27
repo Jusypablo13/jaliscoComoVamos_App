@@ -23,6 +23,24 @@ export type AggregatedResult = {
     breakdown: { label: string; value: number }[]
 }
 
+// NS/NC special values that should be excluded from percentage calculations
+const NS_NC_VALUES = [99, 98, -1, 0] // Common codes for NS/NC (No sabe/No contesta)
+
+export type QuestionDistributionItem = {
+    value: number
+    count: number
+    percentage: number
+    isNsNc: boolean // Flag to indicate if this is NS/NC
+}
+
+export type QuestionDistribution = {
+    questionId: number
+    column: string
+    n: number // Total sample size (all responses including NS/NC)
+    nValid: number // Sample size for percentage calculation (excluding NS/NC)
+    distribution: QuestionDistributionItem[]
+}
+
 export const AnalyticsService = {
     async fetchAggregatedData(
         filters: AnalyticsFilters
@@ -119,6 +137,88 @@ export const AnalyticsService = {
             total,
             sampleSize,
             breakdown,
+        }
+    },
+
+    /**
+     * Fetches the distribution of responses for a single question (global ZMG, no filters).
+     * This function:
+     * 1. Queries Supabase for all responses to the specified question column
+     * 2. Calculates distribution counts for each response value
+     * 3. Calculates percentages excluding NS/NC responses
+     * 
+     * @param questionId - The numeric ID of the question (e.g., 31)
+     * @param column - The column name in the encuesta table (e.g., "Q_31")
+     * @returns QuestionDistribution object with counts and percentages
+     */
+    async fetchQuestionDistribution(
+        questionId: number,
+        column: string
+    ): Promise<QuestionDistribution | null> {
+        try {
+            // Fetch only the column we need from encuestalol (no filters applied)
+            const { data, error } = await supabase
+                .from('encuestalol')
+                .select(column)
+
+            if (error) {
+                console.error('Error fetching question distribution:', error)
+                throw error
+            }
+
+            if (!data || data.length === 0) {
+                return null
+            }
+
+            // Count occurrences of each response value
+            const valueCounts: Record<number, number> = {}
+            let totalResponses = 0
+
+            data.forEach((row) => {
+                const val = (row as any)[column]
+                if (typeof val === 'number' && !isNaN(val)) {
+                    valueCounts[val] = (valueCounts[val] || 0) + 1
+                    totalResponses++
+                }
+            })
+
+            // Calculate valid responses (excluding NS/NC) for percentage calculation
+            let validResponses = 0
+            Object.entries(valueCounts).forEach(([value, count]) => {
+                const numValue = parseInt(value, 10)
+                if (!NS_NC_VALUES.includes(numValue)) {
+                    validResponses += count
+                }
+            })
+
+            // Build distribution array with percentages
+            const distribution: QuestionDistributionItem[] = Object.entries(valueCounts)
+                .map(([value, count]) => {
+                    const numValue = parseInt(value, 10)
+                    const isNsNc = NS_NC_VALUES.includes(numValue)
+                    // Calculate percentage based on valid responses (excluding NS/NC)
+                    const percentage = validResponses > 0 && !isNsNc
+                        ? parseFloat(((count / validResponses) * 100).toFixed(1))
+                        : 0
+                    return {
+                        value: numValue,
+                        count,
+                        percentage,
+                        isNsNc,
+                    }
+                })
+                .sort((a, b) => a.value - b.value) // Sort by value ascending
+
+            return {
+                questionId,
+                column,
+                n: totalResponses,
+                nValid: validResponses,
+                distribution,
+            }
+        } catch (error) {
+            console.error('Analytics Service Error (fetchQuestionDistribution):', error)
+            return null
         }
     },
 }

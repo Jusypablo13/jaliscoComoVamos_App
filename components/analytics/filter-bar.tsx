@@ -10,17 +10,18 @@ import {
 import { supabase } from '../../lib/supabase'
 import { brandColors, typography } from '../../styles/theme'
 
+export type Question = {
+    id?: number
+    pregunta_id: string
+    texto_pregunta: string | null
+}
+
 type FilterBarProps = {
     onSearch: (query: string) => void
     onThemeSelect: (theme: string | null) => void
-    onQuestionSelect: (questionId: string) => void
+    onQuestionSelect: (question: Question) => void
     selectedTheme: string | null
     selectedQuestion: string | null
-}
-
-type Question = {
-    pregunta_id: string
-    texto_pregunta: string | null
 }
 
 export function FilterBar({
@@ -63,7 +64,7 @@ export function FilterBar({
     const fetchQuestionsForTheme = async (theme: string) => {
         const { data } = await supabase
             .from('preguntas')
-            .select('pregunta_id, texto_pregunta')
+            .select('id, pregunta_id, texto_pregunta')
             .eq('nombre_categoria', theme)
 
         if (data) {
@@ -141,7 +142,7 @@ export function FilterBar({
                                     styles.questionItem,
                                     selectedQuestion === q.pregunta_id && styles.questionItemSelected,
                                 ]}
-                                onPress={() => onQuestionSelect(q.pregunta_id)}
+                                onPress={() => onQuestionSelect(q)}
                                 >
                                     <Text
                                         style={[

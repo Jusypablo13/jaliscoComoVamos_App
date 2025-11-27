@@ -7,6 +7,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 export type RootStackParamList = {
     Home: undefined; // The 'Home' screen takes no parameters
     Details: { userId: string; questionId: string }; // The 'Details' screen requires a userId and questionId
+    QuestionDetail: { 
+        questionId: number; // Numeric ID of the question
+        column: string; // Column name in the encuesta table (e.g., "Q_31")
+        questionText?: string; // Optional question text for display
+    };
 };
 
 // Functional components can use these types to type their props:
