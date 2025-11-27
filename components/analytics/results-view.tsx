@@ -3,22 +3,51 @@ import { useRef, useState } from 'react'
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     Share,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native'
+import { BarChart, PieChart } from 'react-native-chart-kit' 
 import ViewShot, { captureRef } from 'react-native-view-shot'
-import { AggregatedResult } from '../../services/analytics'
+import { DashboardChart } from '../../services/analytics'
 import { brandColors, typography } from '../../styles/theme'
-import { AnalyticsChart } from './analytics-chart'
-import { DataTable } from './data-table'
+// import { AnalyticsChart } from './analytics-chart'
+// import { DataTable } from './data-table'
 
 type ResultsViewProps = {
-    result: AggregatedResult | null
+    result: DashboardChart[] | null
     isLoading: boolean
     currentFilters?: any // To generate the share link
+}
+
+// Colores para las gráficas de Pastel
+const PIE_COLORS = [
+  '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'
+]
+
+const formatNumber = (value: any): string => {
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    return 'N/A'
+  }
+
+  const num = Number(value)
+  
+  // Si es un número entero, no usar decimales
+  if (num % 1 === 0) {
+    return num.toString()
+  }
+  
+  // Si tiene decimales, usar máximo 2 decimales
+  return num.toFixed(2)
+}
+
+// Función auxiliar para formatear porcentajes
+const formatPercentage = (value: any): string => {
+  const formatted = formatNumber(value)
+  return formatted === 'N/A' ? 'N/A' : `${formatted}%`
 }
 
 export function ResultsView({
@@ -26,13 +55,20 @@ export function ResultsView({
     isLoading,
     currentFilters,
 }: ResultsViewProps) {
-    const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
+
+    // const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
     const viewShotRef = useRef<View>(null)
     const [isSharing, setIsSharing] = useState(false)
 
     const handleShareImage = async () => {
         try {
             setIsSharing(true)
+
+            if (!viewShotRef.current) {
+                Alert.alert('Error', 'No se pudo capturar la imagen')
+                return
+            }
+
             const uri = await captureRef(viewShotRef, {
                 format: 'png',
                 quality: 0.8,
@@ -59,9 +95,9 @@ export function ResultsView({
 
     const handleShareLink = async () => {
         try {
-            // Construct a deep link or web URL with parameters
-            // For now, we'll simulate a deep link structure
             const params = new URLSearchParams(currentFilters).toString()
+            const message = `Consulta los datos de Jalisco Cómo Vamos${params ? ` con estos filtros: ${params}` : ''}`
+
             const url = `jalisco-como-vamos://analytics?${params}`
 
             await Share.share({
@@ -71,6 +107,8 @@ export function ResultsView({
             })
         } catch (error) {
             console.error('Error sharing link:', error)
+            Alert.alert('Error', 'No se pudo compartir el enlace')
+
         }
     }
 
@@ -83,212 +121,179 @@ export function ResultsView({
         )
     }
 
-    if (!result) {
+    if (!result || result.length === 0) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.emptyText}>
-                    Selecciona una pregunta para ver los resultados.
-                </Text>
-            </View>
+        <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No hay datos disponibles</Text>
+            <Text style={styles.emptySubtext}>
+            Intenta ajustar los filtros para ver resultados de la encuesta
+            </Text>
+        </View>
         )
     }
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.headerRow}>
-                <Text style={styles.title}>Reporte Global</Text>
-                <View style={styles.toolbar}>
-                    <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => setViewMode(viewMode === 'chart' ? 'table' : 'chart')}
-                    >
-                        <Text style={styles.iconButtonText}>
-                            {viewMode === 'chart' ? 'Ver Tabla' : 'Ver Gráfico'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+    // Configuración visual común para ChartKit
+    const chartConfig = {
+      backgroundColor: "#ffffff",
+      backgroundGradientFrom: "#ffffff",
+      backgroundGradientTo: "#ffffff",
+      decimalPlaces: 1,
+      color: (opacity = 1) => `rgba(0, 82, 204, ${opacity})`, // Usa tu brandColor primary aquí
+      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+      style: { borderRadius: 16 },
+      propsForDots: { r: "6", strokeWidth: "2", stroke: "#ffa726" }
+    }
 
-            <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                    <Text style={styles.statLabel}>Promedio</Text>
-                    <Text style={styles.statValue}>{result.average.toFixed(2)}</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Text style={styles.statLabel}>Muestra (N)</Text>
-                    <Text style={styles.statValue}>{result.sampleSize}</Text>
-                </View>
-            </View>
-
-            <ViewShot
-                ref={viewShotRef}
-                options={{ format: 'png', quality: 0.9 }}
-                style={{ backgroundColor: brandColors.background }}
-            >
-                <Text style={styles.chartTitle}>Distribución de respuestas</Text>
-                <View style={styles.contentContainer}>
-                    {viewMode === 'chart' ? (
-                        <AnalyticsChart result={result} />
-                    ) : (
-                        <DataTable result={result} />
-                    )}
-                </View>
-                <View style={styles.notesContainer}>
-                    <Text style={styles.noteTitle}>Notas Metodológicas:</Text>
-                    <Text style={styles.noteText}>
-                        • Los datos representan una muestra de la encuesta 'encuestalol'.
-                    </Text>
-                    <Text style={styles.noteText}>
-                        • N = {result.sampleSize} encuestados que respondieron esta pregunta.
-                    </Text>
-                </View>
-            </ViewShot>
-
-            <View style={styles.actionButtons}>
+      return (
+        <ViewShot ref={viewShotRef} style={styles.container}>
+            {/* Botones de compartir */}
+            <View style={styles.shareContainer}>
                 <TouchableOpacity
-                    style={styles.actionButton}
+                    style={styles.shareButton}
                     onPress={handleShareImage}
                     disabled={isSharing}
                 >
-                    <Text style={styles.actionButtonText}>
-                        {isSharing ? 'Generando...' : 'Descargar Gráfico'}
+                    <Text style={styles.shareButtonText}>
+                        {isSharing ? 'Compartiendo...' : 'Compartir Imagen'}
                     </Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                    style={[styles.actionButton, styles.secondaryButton]}
+                    style={styles.shareButton}
                     onPress={handleShareLink}
                 >
-                    <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
-                        Compartir Consulta
-                    </Text>
+                    <Text style={styles.shareButtonText}>Compartir Enlace</Text>
                 </TouchableOpacity>
             </View>
-        </View>
-    )
+
+            {/* Gráficos */}
+            {result.map((chart) => (
+                <View key={chart.id} style={styles.chartContainer}>
+                <Text style={styles.chartTitle}>{chart.title}</Text>
+                {chart.description && (
+                    <Text style={styles.chartDescription}>{chart.description}</Text>
+                )}
+            
+                {chart.data && chart.data.length > 0 ? (
+                    chart.data.map((item, index) => (
+                    <View key={`${chart.id}-${index}`} style={styles.dataItem}>
+                        <Text style={styles.dataLabel}>{item.label || 'Sin etiqueta'}</Text>
+                        <Text style={styles.dataValue}>
+                        {chart.type === 'pie' && item.percentage !== undefined 
+                            ? formatPercentage(item.percentage)
+                            : formatNumber(item.value)
+                        }
+                        </Text>
+                    </View>
+                    ))
+                ) : (
+                    <Text style={styles.noDataText}>No hay datos para mostrar</Text>
+                )}
+            </View>
+        ))}
+        </ViewShot>
+  )
 }
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 16,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    toolbar: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    iconButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        backgroundColor: '#F0F2F5',
-        borderRadius: 16,
-    },
-    iconButtonText: {
-        fontSize: 12,
-        color: brandColors.primary,
-        fontFamily: typography.emphasis,
-    },
-    loadingText: {
-        textAlign: 'center',
-        color: brandColors.muted,
-        marginTop: 20,
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: brandColors.muted,
-        marginTop: 40,
-        fontFamily: typography.regular,
-    },
-    title: {
-        fontFamily: typography.heading,
-        fontSize: 18,
-        color: brandColors.primary,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 24,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: brandColors.surface,
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    statLabel: {
-        fontFamily: typography.regular,
-        fontSize: 12,
-        color: brandColors.muted,
-        marginBottom: 4,
-    },
-    statValue: {
-        fontFamily: typography.heading,
-        fontSize: 24,
-        color: brandColors.primary,
-    },
-    chartTitle: {
-        fontFamily: typography.heading,
-        fontSize: 16,
-        color: brandColors.text,
-        marginBottom: 12,
-    },
-    contentContainer: {
-        backgroundColor: brandColors.surface,
-        padding: 16,
-        borderRadius: 12,
-        minHeight: 250,
-    },
-    notesContainer: {
-        marginTop: 24,
-        padding: 16,
-        backgroundColor: '#F8F9FA',
-        borderRadius: 8,
-    },
-    noteTitle: {
-        fontFamily: typography.emphasis,
-        fontSize: 12,
-        color: brandColors.text,
-        marginBottom: 4,
-    },
-    noteText: {
-        fontFamily: typography.regular,
-        fontSize: 11,
-        color: brandColors.muted,
-        lineHeight: 16,
-    },
-    actionButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 24,
-    },
-    actionButton: {
-        flex: 1,
-        backgroundColor: brandColors.primary,
-        paddingVertical: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    actionButtonText: {
-        color: '#FFFFFF',
-        fontFamily: typography.emphasis,
-        fontSize: 14,
-    },
-    secondaryButton: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: brandColors.primary,
-    },
-    secondaryButtonText: {
-        color: brandColors.primary,
-    },
+  container: {
+    padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    fontFamily: typography.regular,
+    fontSize: 16,
+    color: brandColors.text,
+    marginTop: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontFamily: typography.emphasis,
+    fontSize: 18,
+    color: brandColors.text,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontFamily: typography.regular,
+    fontSize: 14,
+    color: brandColors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  shareContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  shareButton: {
+    backgroundColor: brandColors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flex: 1,
+    alignItems: 'center',
+  },
+  shareButtonText: {
+    color: 'white',
+    fontFamily: typography.emphasis,
+    fontSize: 14,
+  },
+  chartContainer: {
+    backgroundColor: brandColors.surface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  chartTitle: {
+    fontFamily: typography.heading,
+    fontSize: 16,
+    color: brandColors.text,
+    marginBottom: 8,
+  },
+  chartDescription: {
+    fontFamily: typography.regular,
+    fontSize: 12,
+    color: brandColors.muted,
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  dataItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dataLabel: {
+    fontFamily: typography.regular,
+    fontSize: 14,
+    color: brandColors.text,
+    flex: 1,
+  },
+  dataValue: {
+    fontFamily: typography.emphasis,
+    fontSize: 14,
+    color: brandColors.primary,
+    minWidth: 60,
+    textAlign: 'right',
+  },
+  noDataText: {
+    fontFamily: typography.regular,
+    fontSize: 14,
+    color: brandColors.muted,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
 })

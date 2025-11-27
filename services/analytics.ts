@@ -3,6 +3,20 @@ import { Database } from '../types/supabase'
 
 type EncuestaRow = Database['public']['Tables']['encuestalol']['Row']
 
+export interface DashboardChart {
+  id: string
+  title: string
+  type: 'pie' | 'bar' | 'line'
+  data: Array<{
+    label: string
+    value: number
+    percentage?: number // Para gráficos de pie
+    color?: string
+  }>
+  description?: string
+  totalSamples?: number
+}
+
 export type AnalyticsFilters = {
     theme?: string
     questionId?: string
@@ -10,7 +24,7 @@ export type AnalyticsFilters = {
     sexo?: number
     nse?: number
     calidadVida?: number
-    edad?: number // Exact match for now, or could be range
+    edad?: number 
     escolaridad?: number
     municipio?: string
 }
@@ -23,38 +37,89 @@ export type AggregatedResult = {
     breakdown: { label: string; value: number }[]
 }
 
+// Configuración interna para saber qué preguntar según el tema
+type ThemeConfig = {
+    column: string
+    title: string
+    type: 'pie' | 'bar' | 'line'
+    logic: 'DISTRIBUTION' | 'AVERAGE' | 'BINARY' // Distribución (1,2,3...), Promedio (1-5), o Si/No
+    labels?: Record<string | number, string> // Para traducir "1" a "Sí"
+}
+
+const DASHBOARD_MAP: Record<string, ThemeConfig[]> = {
+    'bienestar': [
+        { 
+            column: 'Q_2', 
+            title: 'Calidad de Vida por Municipio', 
+            type: 'bar', 
+            logic: 'AVERAGE' 
+        },
+        { 
+            column: 'Q_3', 
+            title: 'Nivel de Felicidad', 
+            type: 'bar', 
+            logic: 'AVERAGE' 
+        }
+    ],
+    'economía': [
+        { 
+            column: 'Q_87', 
+            title: 'Distribución de Autos por Hogar', 
+            type: 'pie', 
+            logic: 'DISTRIBUTION',
+            labels: { 
+                0: 'Sin auto', 
+                1: '1 auto', 
+                2: '2 autos', 
+                3: '3+ autos' 
+            }
+        },
+        {
+            column: 'Q_86',
+            title: 'Nivel Socioeconómico',
+            type: 'bar',
+            logic: 'DISTRIBUTION',
+            labels: { 1: '0-5', 2: '6-10', 3: '11-15', 4: '16-20', 5: '21+' }
+        }
+    ],
+    'Conectividad': [
+        { 
+            column: 'Q_88', 
+            title: 'Acceso a Internet', 
+            type: 'pie', 
+            logic: 'BINARY',
+            labels: { 1: 'Con Internet', 2: 'Sin Internet' }
+        }
+    ],
+}
+
+
 export const AnalyticsService = {
     async fetchAggregatedData(
         filters: AnalyticsFilters
-    ): Promise<AggregatedResult | null> {
+    ): Promise<DashboardChart[] | null> {
         try {
-            let query = supabase.from('encuestalol').select('*')
+            console.log('Obteniendo datos con filtros:', filters)
+            let configs: ThemeConfig[] = []
 
-            // Apply filters
-            // Apply filters
-            if (filters.sexo) {
-                query = query.eq('SEXO', filters.sexo)
-            }
-            if (filters.nse) {
-                query = query.eq('NSE2024', filters.nse)
-            }
-            if (filters.calidadVida) {
-                query = query.eq('CALIDAD_VIDA', filters.calidadVida)
-            }
-            if (filters.edad) {
-                // Assuming exact age for now, or we could add logic for ranges
-                query = query.eq('EDAD', filters.edad)
-            }
-            if (filters.escolaridad) {
-                query = query.eq('ESC', filters.escolaridad)
-            }
-            if (filters.municipio) {
-                query = query.eq('MUNICIPIO', filters.municipio)
+            if (filters.theme) {
+                configs = DASHBOARD_MAP[filters.theme] || []
+            } else {
+                configs = Object.values(DASHBOARD_MAP).flat()
             }
 
-            // We fetch all matching rows to aggregate client-side
-            // In a real large-scale app, this should be a Postgres function (RPC)
-            // console.log('Fetching analytics data with filters:', filters)
+            if (configs.length === 0) return []
+
+            // Query base 
+            const uniqueColumns = [...new Set(configs.map(c => c.column))]
+
+            const columnsToFetch = uniqueColumns.join(',')
+            let query = supabase.from('encuestalol').select(columnsToFetch)
+
+            if (filters.sexo) query = query.eq('Q_74', filters.sexo) 
+            if (filters.municipio) query = query.eq('Q_94', filters.municipio)
+
+            // 4. Ejecutar la consulta
             const { data, error } = await query
 
             if (error) {
@@ -62,31 +127,104 @@ export const AnalyticsService = {
                 throw error
             }
 
-            // console.log('Fetched data count:', data?.length)
-            if (data && data.length > 0) {
-                // console.log('Sample row:', data[0])
-            }
+            if (!data || data.length === 0) return []
 
-            if (!data || data.length === 0) {
-                return null
-            }
+            const charts: DashboardChart[] = configs.map(config => {
+                return this.processChart(data, config)
+            })
 
-            // If a specific question is selected, aggregate that
-            if (filters.questionId) {
-                return this.aggregateQuestion(data, filters.questionId)
-            }
+            return charts
 
-            // If no question selected, we can't easily aggregate "everything" into one number
-            // So we might return null or a default aggregation.
-            // For this prototype, let's aggregate the first available numeric question if none selected,
-            // or just return null to prompt user to select a question.
-            return null
         } catch (error) {
             console.error('Analytics Service Error:', error)
             return null
         }
     },
 
+    processChart(data: any[], config: ThemeConfig): DashboardChart {
+        const validData = data.filter(row => row[config.column] !== null)
+        const totalSamples = validData.length
+            let chartData: { label: string; value: number }[] = []
+            let description = `Basado en ${totalSamples} respuestas válidas`
+
+
+            if (totalSamples === 0) {
+            return {
+                id: config.column,
+                title: config.title,
+                type: config.type,
+                data: [],
+                description: 'No hay datos disponibles para esta pregunta',
+                totalSamples: 0
+            }
+        }
+
+            if (config.logic === 'AVERAGE') {
+                // ✅ Lógica para promedios por municipio o categoría
+                const municipioStats: Record<string, { sum: number; count: number }> = {}
+
+                validData.forEach(row => {
+                const municipio = this.getMunicipioName(row['Q_94'])
+                const value = Number(row[config.column])
+                
+                if (!municipioStats[municipio]) {
+                    municipioStats[municipio] = { sum: 0, count: 0 }
+                }
+                municipioStats[municipio].sum += value
+                municipioStats[municipio].count += 1
+            })
+            
+            chartData = Object.entries(municipioStats).map(([municipio, stats]) => ({
+                label: municipio,
+                value: parseFloat((stats.sum / stats.count).toFixed(2))
+            }))
+            description = `Promedio por municipio (escala 1-5). ${description}`
+
+        } 
+        else {
+            // Lógica para Distribución (Ej. Cuántos tienen Autos, Internet)
+            const distribution: Record<string, number> = {}
+            
+            validData.forEach(row => {
+                const rawValue = row[config.column]
+                // Si tenemos una etiqueta amigable (ej. 1 -> "Sí"), la usamos
+                const label = config.labels?.[rawValue] || String(rawValue)
+                distribution[label] = (distribution[label] || 0) + 1
+            })
+            const total = Object.values(distribution).reduce((a, b) => a + b, 0)
+
+
+            chartData = Object.entries(distribution).map(([label, value]) => ({
+                label,
+                value,
+                percentage: parseFloat(((value / total) * 100).toFixed(1))
+            }))
+            description = `Distribución de respuestas. ${description}`
+
+        }
+
+        return {
+            id: config.column,
+            title: config.title,
+            type: config.type,
+            data: chartData,
+            description,
+            totalSamples
+        }
+    },
+
+    getMunicipioName(id: any): string {
+        const municipios: Record<string, string> = {
+            '1': 'Guadalajara',
+            '2': 'Zapopan', 
+            '3': 'Tlaquepaque',
+            '4': 'Tonalá',
+            '5': 'El Salto',
+            '6': 'Tlajomulco'
+        }
+        return municipios[String(id)] || `Municipio ${id}`
+    }
+/*
     aggregateQuestion(data: EncuestaRow[], questionId: string): AggregatedResult {
         const validData = data.filter((row) => {
             const val = (row as any)[questionId]
@@ -120,5 +258,5 @@ export const AnalyticsService = {
             sampleSize,
             breakdown,
         }
-    },
+    },*/
 }

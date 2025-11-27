@@ -25,3 +25,39 @@ export const typography = {
     default: 'Roboto',
   }),
 }
+
+export const textStyles = {
+  h1: {
+    fontFamily: typography.heading,
+    fontSize: 32,
+    fontWeight: 'bold' as const,
+    lineHeight: 40,
+  },
+  h2: {
+    fontFamily: typography.heading,
+    fontSize: 24,
+    fontWeight: 'bold' as const,
+    lineHeight: 32,
+  },
+  h3: {
+    fontFamily: typography.heading,
+    fontSize: 20,
+    fontWeight: '600' as const,
+    lineHeight: 28,
+  },
+  body: {
+    fontFamily: typography.regular,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  caption: {
+    fontFamily: typography.regular,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  small: {
+    fontFamily: typography.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+}

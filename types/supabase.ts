@@ -52,13 +52,13 @@ export interface Database {
                 }
                 Insert: {
                     id: string
-                    full_name: string
-                    email: string
+                    full_name?: string | null
+                    email?: string | null
                 }
                 Update: {
                     id?: string
-                    full_name?: string
-                    email?: string
+                    full_name?: string | null
+                    email?: string | null
                 }
             }
 
