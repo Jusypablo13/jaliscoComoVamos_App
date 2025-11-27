@@ -4,6 +4,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native'
 import { useUserPreferences } from '../contexts/user-preferences-context'
@@ -82,6 +83,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         setFilters((prev) => ({ ...prev, ...segFilters }))
     }
 
+    const handleBarChartPreview = () => {
+        navigation.navigate('BarChartPreview')
+    }
+
     return (
         <ScrollView>
             <View style={styles.container}>
@@ -94,6 +99,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                             Explora los datos del Observatorio
                         </Text>
                     </View>
+                </View>
+
+                {/* Developer Preview Button */}
+                <View style={styles.devPreviewContainer}>
+                    <TouchableOpacity 
+                        style={styles.devPreviewButton}
+                        onPress={handleBarChartPreview}
+                    >
+                        <Text style={styles.devPreviewButtonText}>
+                            📊 Ver Vista Previa: Gráfica de Barras
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 <FilterBar
@@ -148,5 +165,21 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingBottom: 40,
+    },
+    devPreviewContainer: {
+        padding: 16,
+        backgroundColor: brandColors.highlight,
+    },
+    devPreviewButton: {
+        backgroundColor: brandColors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    devPreviewButtonText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.surface,
     },
 })

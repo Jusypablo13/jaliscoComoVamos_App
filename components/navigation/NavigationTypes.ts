@@ -11,6 +11,7 @@ export type RootStackParamList = {
         column: string; // Column name in the encuesta table (e.g., "Q_31")
         questionText?: string; // Optional question text for display
     };
+    BarChartPreview: undefined; // Preview screen for bar chart component
 };
 
 // Functional components can use these types to type their props:
