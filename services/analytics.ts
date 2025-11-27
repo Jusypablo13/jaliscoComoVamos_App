@@ -127,6 +127,60 @@ export type QuestionDistributionFilters = {
     calidadVidaGroupId?: number    // Quality of life group ID (1-3) mapped to Q_2 values
 }
 
+/**
+ * Helper function to get additional columns needed for client-side filtering.
+ * Returns an array of column names that need to be selected.
+ */
+function getAdditionalColumnsForFilters(filters?: QuestionDistributionFilters): string[] {
+    const columns: string[] = []
+    if (filters?.escolaridadGroupId !== undefined) {
+        columns.push('Q_76')
+    }
+    if (filters?.calidadVidaGroupId !== undefined) {
+        columns.push('Q_2')
+    }
+    return columns
+}
+
+/**
+ * Helper function to apply client-side filters for grouped values.
+ * Filters data by education level and/or quality of life groups.
+ */
+function applyClientSideFilters(
+    data: Record<string, unknown>[],
+    filters?: QuestionDistributionFilters
+): Record<string, unknown>[] {
+    let filteredData = data
+
+    // Filter by education group if provided
+    if (filters?.escolaridadGroupId !== undefined) {
+        const educationGroup = Object.values(EDUCATION_GROUPS).find(
+            g => g.id === filters.escolaridadGroupId
+        )
+        if (educationGroup) {
+            filteredData = filteredData.filter((row) => {
+                const escolaridad = getColumnValue(row, 'Q_76')
+                return typeof escolaridad === 'number' && educationGroup.values.includes(escolaridad)
+            })
+        }
+    }
+
+    // Filter by quality of life group if provided
+    if (filters?.calidadVidaGroupId !== undefined) {
+        const qualityGroup = Object.values(QUALITY_OF_LIFE_GROUPS).find(
+            g => g.id === filters.calidadVidaGroupId
+        )
+        if (qualityGroup) {
+            filteredData = filteredData.filter((row) => {
+                const calidadVida = getColumnValue(row, 'Q_2')
+                return typeof calidadVida === 'number' && qualityGroup.values.includes(calidadVida)
+            })
+        }
+    }
+
+    return filteredData
+}
+
 export type QuestionDistributionItem = {
     value: number
     count: number
@@ -319,15 +373,8 @@ export const AnalyticsService = {
     ): Promise<QuestionDistribution | null> {
         try {
             // Determine which columns we need to select for filtering
-            const columnsToSelect = [column]
-            
-            // Add columns needed for client-side filtering
-            if (filters?.escolaridadGroupId !== undefined) {
-                columnsToSelect.push('Q_76')
-            }
-            if (filters?.calidadVidaGroupId !== undefined) {
-                columnsToSelect.push('Q_2')
-            }
+            const additionalColumns = getAdditionalColumnsForFilters(filters)
+            const columnsToSelect = [column, ...additionalColumns]
             
             // Fetch the columns we need from encuestalol
             let query = supabase
@@ -361,40 +408,17 @@ export const AnalyticsService = {
             }
 
             if (!data || data.length === 0) {
-                return null
+                return null;
             }
 
             // Apply client-side filters for grouped values
-            let filteredData = data
-
-            // Filter by education group if provided
-            if (filters?.escolaridadGroupId !== undefined) {
-                const educationGroup = Object.values(EDUCATION_GROUPS).find(
-                    g => g.id === filters.escolaridadGroupId
-                )
-                if (educationGroup) {
-                    filteredData = filteredData.filter((row) => {
-                        const escolaridad = getColumnValue(row as Record<string, unknown>, 'Q_76')
-                        return typeof escolaridad === 'number' && educationGroup.values.includes(escolaridad)
-                    })
-                }
-            }
-
-            // Filter by quality of life group if provided
-            if (filters?.calidadVidaGroupId !== undefined) {
-                const qualityGroup = Object.values(QUALITY_OF_LIFE_GROUPS).find(
-                    g => g.id === filters.calidadVidaGroupId
-                )
-                if (qualityGroup) {
-                    filteredData = filteredData.filter((row) => {
-                        const calidadVida = getColumnValue(row as Record<string, unknown>, 'Q_2')
-                        return typeof calidadVida === 'number' && qualityGroup.values.includes(calidadVida)
-                    })
-                }
-            }
+            const filteredData = applyClientSideFilters(
+                data as Record<string, unknown>[],
+                filters
+            )
 
             if (filteredData.length === 0) {
-                return null
+                return null;
             }
 
             // Count occurrences of each response value
@@ -466,15 +490,8 @@ export const AnalyticsService = {
     ): Promise<GroupedQuestionDistribution | null> {
         try {
             // Determine which columns we need to select for filtering
-            const columnsToSelect = [column, 'Q_74']
-            
-            // Add columns needed for client-side filtering
-            if (filters?.escolaridadGroupId !== undefined) {
-                columnsToSelect.push('Q_76')
-            }
-            if (filters?.calidadVidaGroupId !== undefined) {
-                columnsToSelect.push('Q_2')
-            }
+            const additionalColumns = getAdditionalColumnsForFilters(filters)
+            const columnsToSelect = [column, 'Q_74', ...additionalColumns]
             
             // Fetch the columns we need from encuestalol
             let query = supabase
@@ -510,33 +527,10 @@ export const AnalyticsService = {
             }
 
             // Apply client-side filters for grouped values
-            let filteredData = data
-
-            // Filter by education group if provided
-            if (filters?.escolaridadGroupId !== undefined) {
-                const educationGroup = Object.values(EDUCATION_GROUPS).find(
-                    g => g.id === filters.escolaridadGroupId
-                )
-                if (educationGroup) {
-                    filteredData = filteredData.filter((row) => {
-                        const escolaridad = getColumnValue(row as Record<string, unknown>, 'Q_76')
-                        return typeof escolaridad === 'number' && educationGroup.values.includes(escolaridad)
-                    })
-                }
-            }
-
-            // Filter by quality of life group if provided
-            if (filters?.calidadVidaGroupId !== undefined) {
-                const qualityGroup = Object.values(QUALITY_OF_LIFE_GROUPS).find(
-                    g => g.id === filters.calidadVidaGroupId
-                )
-                if (qualityGroup) {
-                    filteredData = filteredData.filter((row) => {
-                        const calidadVida = getColumnValue(row as Record<string, unknown>, 'Q_2')
-                        return typeof calidadVida === 'number' && qualityGroup.values.includes(calidadVida)
-                    })
-                }
-            }
+            const filteredData = applyClientSideFilters(
+                data as Record<string, unknown>[],
+                filters
+            )
 
             if (filteredData.length === 0) {
                 return null;

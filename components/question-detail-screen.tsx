@@ -85,18 +85,18 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Track if this is the initial load
     const isInitialLoad = useRef(true)
 
-    // Build filters object for API calls
-    const buildFilters = (): QuestionDistributionFilters => ({
+    // Memoize filters object to avoid recreating on every render
+    const filters = useMemo<QuestionDistributionFilters>(() => ({
         municipioId: selectedMunicipioId,
         sexoId: selectedSexoId,
         edadRangeId: selectedEdadRangeId,
         escolaridadGroupId: selectedEscolaridadGroupId,
         calidadVidaGroupId: selectedCalidadVidaGroupId,
-    })
+    }), [selectedMunicipioId, selectedSexoId, selectedEdadRangeId, selectedEscolaridadGroupId, selectedCalidadVidaGroupId])
 
     useEffect(() => {
         fetchDistribution()
-    }, [questionId, column, selectedMunicipioId, selectedSexoId, selectedEdadRangeId, selectedEscolaridadGroupId, selectedCalidadVidaGroupId, showGroupedBySexo]);
+    }, [questionId, column, filters, showGroupedBySexo]);
 
     // Compute grouped table rows data for the cross-table view
     const groupedTableRows = useMemo(() => {
@@ -173,7 +173,6 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         }
         
         setError(null)
-        const filters = buildFilters()
         
         try {
             if (showGroupedBySexo) {
