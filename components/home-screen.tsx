@@ -14,7 +14,7 @@ import {
     AnalyticsService,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
-import { FilterBar } from './analytics/filter-bar'
+import { FilterBar, Question } from './analytics/filter-bar'
 import { ResultsView } from './analytics/results-view'
 import { SegmentationControls } from './analytics/segmentation-controls'
 import { HomeScreenProps } from './navigation/NavigationTypes'
@@ -59,8 +59,16 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         }))
     }
 
-    const handleQuestionSelect = (questionId: string) => {
-        navigation.navigate('Details', { userId: '123', questionId: questionId });
+    const handleQuestionSelect = (question: Question) => {
+        // Use the database id when available (preferred), as it's reliable
+        // If not available, fall back to parsing the column name (legacy support)
+        const numericId = question.id !== undefined ? question.id : 0
+        
+        navigation.navigate('QuestionDetail', { 
+            questionId: numericId,
+            column: question.pregunta_id,
+            questionText: question.texto_pregunta ?? undefined,
+        });
     }
 
     const handleSegmentationChange = (segFilters: {

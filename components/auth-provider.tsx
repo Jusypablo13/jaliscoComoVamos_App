@@ -63,7 +63,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       setIsLoading(true)
 
       const { data, error } = await supabase
-        .from('profiles')
+        .from('auth.profiles')
         .select('*')
         .eq('id', session.user.id)
         .single()

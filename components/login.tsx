@@ -57,7 +57,7 @@ export function LoginScreen({ onAuthSuccess }: Props) {
         }
         if (data.user) {
           const { error: profileError } = await supabase
-            .from('profiles')
+            .from('auth.profiles')
             .upsert(
               {
                 id: data.user.id,

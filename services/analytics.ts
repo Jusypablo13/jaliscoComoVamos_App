@@ -3,6 +3,19 @@ import { Database } from '../types/supabase'
 
 type EncuestaRow = Database['public']['Tables']['encuestalol']['Row']
 
+/**
+ * Helper function to safely access a dynamic column value from a row.
+ * Since survey columns are accessed dynamically by column name, we need
+ * to use indexed access which TypeScript cannot type-check at compile time.
+ * 
+ * @param row - The row object from Supabase query
+ * @param column - The column name to access
+ * @returns The value at the column, or undefined if not present
+ */
+function getColumnValue(row: Record<string, unknown>, column: string): unknown {
+    return row[column]
+}
+
 export type AnalyticsFilters = {
     theme?: string
     questionId?: string
@@ -23,14 +36,41 @@ export type AggregatedResult = {
     breakdown: { label: string; value: number }[]
 }
 
+/**
+ * NS/NC (No sabe/No contesta) special values that should be excluded from percentage calculations.
+ * These are standard codes used in survey methodology:
+ * - 99: Common code for "No sabe" (Don't know)
+ * - 98: Common code for "No contesta" (No answer/Refused)
+ * - -1: Alternative code for missing/invalid response
+ * - 0: Alternative code for no response in some survey designs
+ * 
+ * Note: These values are specific to the survey design of Jalisco Cómo Vamos.
+ * Modify this array if the survey methodology changes.
+ */
+const NS_NC_VALUES = [99, 98, -1, 0]
+
+export type QuestionDistributionItem = {
+    value: number
+    count: number
+    percentage: number
+    isNsNc: boolean // Flag to indicate if this is NS/NC
+}
+
+export type QuestionDistribution = {
+    questionId: number
+    column: string
+    n: number // Total sample size (all responses including NS/NC)
+    nValid: number // Sample size for percentage calculation (excluding NS/NC)
+    distribution: QuestionDistributionItem[]
+}
+
 export const AnalyticsService = {
     async fetchAggregatedData(
         filters: AnalyticsFilters
     ): Promise<AggregatedResult | null> {
         try {
-            let query = supabase.from('encuestalol').select('*')
+            let query = supabase.from('encuestalol').select('*').limit(3000);
 
-            // Apply filters
             // Apply filters
             if (filters.sexo) {
                 query = query.eq('SEXO', filters.sexo)
@@ -89,13 +129,16 @@ export const AnalyticsService = {
 
     aggregateQuestion(data: EncuestaRow[], questionId: string): AggregatedResult {
         const validData = data.filter((row) => {
-            const val = (row as any)[questionId]
+            const val = getColumnValue(row as Record<string, unknown>, questionId)
             return typeof val === 'number' && !isNaN(val)
         })
 
         const sampleSize = validData.length
         const total = validData.reduce(
-            (sum, row) => sum + ((row as any)[questionId] as number),
+            (sum, row) => {
+                const val = getColumnValue(row as Record<string, unknown>, questionId)
+                return sum + (typeof val === 'number' ? val : 0)
+            },
             0
         )
         const average = sampleSize > 0 ? total / sampleSize : 0
@@ -104,8 +147,10 @@ export const AnalyticsService = {
         // This assumes the question is a scale or categorical numeric
         const distribution: Record<string, number> = {}
         validData.forEach((row) => {
-            const val = (row as any)[questionId]
-            distribution[val] = (distribution[val] || 0) + 1
+            const val = getColumnValue(row as Record<string, unknown>, questionId)
+            if (typeof val === 'number') {
+                distribution[val] = (distribution[val] || 0) + 1
+            }
         })
 
         const breakdown = Object.entries(distribution).map(([label, value]) => ({
@@ -119,6 +164,89 @@ export const AnalyticsService = {
             total,
             sampleSize,
             breakdown,
+        }
+    },
+
+    /**
+     * Fetches the distribution of responses for a single question (global ZMG, no filters).
+     * This function:
+     * 1. Queries Supabase for all responses to the specified question column
+     * 2. Calculates distribution counts for each response value
+     * 3. Calculates percentages excluding NS/NC responses
+     * 
+     * @param questionId - The numeric ID of the question (e.g., 31)
+     * @param column - The column name in the encuesta table (e.g., "Q_31")
+     * @returns QuestionDistribution object with counts and percentages
+     */
+    async fetchQuestionDistribution(
+        questionId: number,
+        column: string
+    ): Promise<QuestionDistribution | null> {
+        try {
+            // Fetch only the column we need from encuestalol (no filters applied)
+            const { data, error } = await supabase
+                .from('encuestalol')
+                .select(column)
+                .limit(3000);
+
+            if (error) {
+                console.error('Error fetching question distribution:', error)
+                throw error
+            }
+
+            if (!data || data.length === 0) {
+                return null
+            }
+
+            // Count occurrences of each response value
+            const valueCounts: Record<number, number> = {}
+            let totalResponses = 0
+
+            data.forEach((row) => {
+                const val = getColumnValue(row as Record<string, unknown>, column)
+                if (typeof val === 'number' && !isNaN(val)) {
+                    valueCounts[val] = (valueCounts[val] || 0) + 1
+                    totalResponses++
+                }
+            })
+
+            // Calculate valid responses (excluding NS/NC) for percentage calculation
+            let validResponses = 0
+            Object.entries(valueCounts).forEach(([value, count]) => {
+                const numValue = parseInt(value, 10)
+                if (!NS_NC_VALUES.includes(numValue)) {
+                    validResponses += count
+                }
+            })
+
+            // Build distribution array with percentages
+            const distribution: QuestionDistributionItem[] = Object.entries(valueCounts)
+                .map(([value, count]) => {
+                    const numValue = parseInt(value, 10)
+                    const isNsNc = NS_NC_VALUES.includes(numValue)
+                    // Calculate percentage based on valid responses (excluding NS/NC)
+                    const percentage = validResponses > 0 && !isNsNc
+                        ? parseFloat(((count / validResponses) * 100).toFixed(1))
+                        : 0
+                    return {
+                        value: numValue,
+                        count,
+                        percentage,
+                        isNsNc,
+                    }
+                })
+                .sort((a, b) => a.value - b.value) // Sort by value ascending
+
+            return {
+                questionId,
+                column,
+                n: totalResponses,
+                nValid: validResponses,
+                distribution,
+            }
+        } catch (error) {
+            console.error('Analytics Service Error (fetchQuestionDistribution):', error)
+            return null
         }
     },
 }
