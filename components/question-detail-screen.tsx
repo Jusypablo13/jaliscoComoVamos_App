@@ -173,6 +173,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         : 0
 
     // Compute bar chart data from distribution
+    // Options are static so only distribution needs to be in dependency array
     const barChartData = useMemo(() => {
         if (!distribution) return []
         return distributionToBarData(distribution, { includeNsNc: false })

@@ -98,14 +98,10 @@ export type GroupedQuestionDistribution = {
     groups: GroupedDistributionItem[]
 }
 
-/**
- * Data structure for bar chart data points.
- * Each datum represents a category with a label and percentage value.
- */
-export type BarDatum = {
-    label: string
-    value: number // Percentage value (0-100)
-}
+// Import BarDatum type from discrete-bar-chart to avoid duplication
+import type { BarDatum } from '../components/analytics/discrete-bar-chart'
+// Re-export for convenience
+export type { BarDatum }
 
 /**
  * Adapter function that transforms QuestionDistribution data to BarDatum[] format
