@@ -60,7 +60,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
 
     const getSelectedMunicipioName = () => {
         const municipio = MUNICIPIOS.find(m => m.id === selectedMunicipioId)
-        return municipio?.nombre || 'Todos los municipios (ZMG)'
+        return municipio?.nombre || MUNICIPIOS[0].nombre
     }
 
     if (isLoading) {
