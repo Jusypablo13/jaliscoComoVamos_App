@@ -65,6 +65,122 @@ const SEXO_LABELS: { [key: number]: string } = {
 
 const SEXO_IDS = [SEXO_VALUES.HOMBRE, SEXO_VALUES.MUJER] as const
 
+/**
+ * Age range definitions for filtering.
+ * The database column Q_75 contains the exact age of the respondent.
+ * We group ages into ranges for easier analysis.
+ */
+export const AGE_RANGES = {
+    '18-29': { id: 1, label: '18-29', min: 18, max: 29 },
+    '30-44': { id: 2, label: '30-44', min: 30, max: 44 },
+    '45-59': { id: 3, label: '45-59', min: 45, max: 59 },
+    '60+': { id: 4, label: '60+', min: 60, max: 120 },
+} as const
+
+export type AgeRangeKey = keyof typeof AGE_RANGES
+
+/**
+ * Education level groupings for filtering.
+ * The database column Q_76 contains values 1-17 representing specific education levels.
+ * We group these into broader categories for analysis.
+ * 
+ * Mapping from Q_76 values to groups:
+ * - Sec< (Secondary or less): 1-4, 17 (Primaria incompleta/completa, Secundaria incompleta/completa, Sin estudios)
+ * - Prep (Preparatoria/Technical): 5-10 (Carrera comercial, Carrera técnica, Preparatoria)
+ * - Univ+ (University or higher): 11-16 (Licenciatura, Maestría, Doctorado)
+ */
+export const EDUCATION_GROUPS: { [key: string]: { id: number; label: string; values: number[] } } = {
+    'Sec<': { id: 1, label: 'Sec<', values: [1, 2, 3, 4, 17] },
+    'Prep': { id: 2, label: 'Prep', values: [5, 6, 7, 8, 9, 10] },
+    'Univ+': { id: 3, label: 'Univ+', values: [11, 12, 13, 14, 15, 16] },
+}
+
+export type EducationGroupKey = keyof typeof EDUCATION_GROUPS
+
+/**
+ * Quality of life groupings for filtering.
+ * The database column Q_2 contains values 1-5 representing quality of life ratings.
+ * We group these into three categories.
+ * 
+ * Mapping from Q_2 values to groups:
+ * - Baja (Low): 1-2
+ * - Media (Medium): 3
+ * - Alta (High): 4-5
+ */
+export const QUALITY_OF_LIFE_GROUPS: { [key: string]: { id: number; label: string; values: number[] } } = {
+    'Baja': { id: 1, label: '1-2 (Baja)', values: [1, 2] },
+    'Media': { id: 2, label: '3 (Media)', values: [3] },
+    'Alta': { id: 3, label: '4-5 (Alta)', values: [4, 5] },
+}
+
+export type QualityOfLifeGroupKey = keyof typeof QUALITY_OF_LIFE_GROUPS
+
+/**
+ * Extended filter options for question distribution queries.
+ * Supports filtering by multiple demographic dimensions.
+ */
+export type QuestionDistributionFilters = {
+    municipioId?: number           // Q_94: Municipality ID (1-6)
+    sexoId?: number                // Q_74: Gender (1=Hombre, 2=Mujer)
+    edadRangeId?: number           // Age range ID (1-4) mapped to Q_75 ranges
+    escolaridadGroupId?: number    // Education group ID (1-3) mapped to Q_76 values
+    calidadVidaGroupId?: number    // Quality of life group ID (1-3) mapped to Q_2 values
+}
+
+/**
+ * Helper function to get additional columns needed for client-side filtering.
+ * Returns an array of column names that need to be selected.
+ */
+function getAdditionalColumnsForFilters(filters?: QuestionDistributionFilters): string[] {
+    const columns: string[] = []
+    if (filters?.escolaridadGroupId !== undefined) {
+        columns.push('Q_76')
+    }
+    if (filters?.calidadVidaGroupId !== undefined) {
+        columns.push('Q_2')
+    }
+    return columns
+}
+
+/**
+ * Helper function to apply client-side filters for grouped values.
+ * Filters data by education level and/or quality of life groups.
+ */
+function applyClientSideFilters(
+    data: Record<string, unknown>[],
+    filters?: QuestionDistributionFilters
+): Record<string, unknown>[] {
+    let filteredData = data
+
+    // Filter by education group if provided
+    if (filters?.escolaridadGroupId !== undefined) {
+        const educationGroup = Object.values(EDUCATION_GROUPS).find(
+            g => g.id === filters.escolaridadGroupId
+        )
+        if (educationGroup) {
+            filteredData = filteredData.filter((row) => {
+                const escolaridad = getColumnValue(row, 'Q_76')
+                return typeof escolaridad === 'number' && educationGroup.values.includes(escolaridad)
+            })
+        }
+    }
+
+    // Filter by quality of life group if provided
+    if (filters?.calidadVidaGroupId !== undefined) {
+        const qualityGroup = Object.values(QUALITY_OF_LIFE_GROUPS).find(
+            g => g.id === filters.calidadVidaGroupId
+        )
+        if (qualityGroup) {
+            filteredData = filteredData.filter((row) => {
+                const calidadVida = getColumnValue(row, 'Q_2')
+                return typeof calidadVida === 'number' && qualityGroup.values.includes(calidadVida)
+            })
+        }
+    }
+
+    return filteredData
+}
+
 export type QuestionDistributionItem = {
     value: number
     count: number
@@ -237,41 +353,51 @@ export const AnalyticsService = {
 
     /**
      * Fetches the distribution of responses for a single question.
-     * Optionally filters by municipality using the Q_94 column and/or by sexo using Q_74.
+     * Supports filtering by multiple demographic dimensions.
      * This function:
      * 1. Queries Supabase for all responses to the specified question column
-     * 2. Optionally filters by municipality (Q_94 = municipioId)
-     * 3. Optionally filters by sexo (Q_74 = sexoId: 1=Hombre, 2=Mujer)
+     * 2. Applies server-side filters where possible (municipality, sexo, age range)
+     * 3. Applies client-side filters for grouped values (education, quality of life)
      * 4. Calculates distribution counts for each response value
      * 5. Calculates percentages excluding NS/NC responses
      * 
      * @param questionId - The numeric ID of the question (e.g., 31)
      * @param column - The column name in the encuesta table (e.g., "Q_31")
-     * @param municipioId - Optional municipality ID (1-6) to filter results. If undefined, returns global ZMG results.
-     * @param sexoId - Optional sexo ID (1=Hombre, 2=Mujer) to filter results. If undefined, returns results for both sexes.
+     * @param filters - Optional filters object with demographic filter options
      * @returns QuestionDistribution object with counts and percentages
      */
     async fetchQuestionDistribution(
         questionId: number,
         column: string,
-        municipioId?: number,
-        sexoId?: number
+        filters?: QuestionDistributionFilters
     ): Promise<QuestionDistribution | null> {
         try {
-            // Fetch the column we need from encuestalol, optionally filtered by municipality and/or sexo
+            // Determine which columns we need to select for filtering
+            const additionalColumns = getAdditionalColumnsForFilters(filters)
+            const columnsToSelect = [column, ...additionalColumns]
+            
+            // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
-                .select(column)
+                .select(columnsToSelect.join(', '))
                 .limit(3000);
 
             // Apply municipality filter if provided (Q_94 is the municipality column)
-            if (municipioId !== undefined) {
-                query = query.eq('Q_94', municipioId);
+            if (filters?.municipioId !== undefined) {
+                query = query.eq('Q_94', filters.municipioId);
             }
 
             // Apply sexo filter if provided (Q_74 is the sexo column: 1=Hombre, 2=Mujer)
-            if (sexoId !== undefined) {
-                query = query.eq('Q_74', sexoId);
+            if (filters?.sexoId !== undefined) {
+                query = query.eq('Q_74', filters.sexoId);
+            }
+
+            // Apply age range filter if provided (Q_75 is the age column)
+            if (filters?.edadRangeId !== undefined) {
+                const ageRange = Object.values(AGE_RANGES).find(r => r.id === filters.edadRangeId)
+                if (ageRange) {
+                    query = query.gte('Q_75', ageRange.min).lte('Q_75', ageRange.max);
+                }
             }
 
             const { data, error } = await query;
@@ -282,14 +408,24 @@ export const AnalyticsService = {
             }
 
             if (!data || data.length === 0) {
-                return null
+                return null;
+            }
+
+            // Apply client-side filters for grouped values
+            const filteredData = applyClientSideFilters(
+                data as Record<string, unknown>[],
+                filters
+            )
+
+            if (filteredData.length === 0) {
+                return null;
             }
 
             // Count occurrences of each response value
             const valueCounts: Record<number, number> = {}
             let totalResponses = 0
 
-            data.forEach((row) => {
+            filteredData.forEach((row) => {
                 const val = getColumnValue(row as Record<string, unknown>, column)
                 if (typeof val === 'number' && !isNaN(val)) {
                     valueCounts[val] = (valueCounts[val] || 0) + 1
@@ -340,28 +476,40 @@ export const AnalyticsService = {
     /**
      * Fetches the distribution of responses for a single question, grouped by sexo.
      * Returns separate distribution data for Hombre and Mujer.
-     * Optionally filters by municipality using the Q_94 column.
+     * Supports filtering by multiple demographic dimensions.
      * 
      * @param questionId - The numeric ID of the question (e.g., 31)
      * @param column - The column name in the encuesta table (e.g., "Q_31")
-     * @param municipioId - Optional municipality ID (1-6) to filter results. If undefined, returns global ZMG results.
+     * @param filters - Optional filters object with demographic filter options (sexoId is ignored since we're grouping by sexo)
      * @returns GroupedQuestionDistribution object with distribution data per sexo group
      */
     async fetchQuestionDistributionGroupedBySexo(
         questionId: number,
         column: string,
-        municipioId?: number
+        filters?: QuestionDistributionFilters
     ): Promise<GroupedQuestionDistribution | null> {
         try {
-            // Fetch the column we need plus Q_74 (sexo) from encuestalol
+            // Determine which columns we need to select for filtering
+            const additionalColumns = getAdditionalColumnsForFilters(filters)
+            const columnsToSelect = [column, 'Q_74', ...additionalColumns]
+            
+            // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
-                .select(`${column}, Q_74`)
+                .select(columnsToSelect.join(', '))
                 .limit(3000);
 
             // Apply municipality filter if provided (Q_94 is the municipality column)
-            if (municipioId !== undefined) {
-                query = query.eq('Q_94', municipioId);
+            if (filters?.municipioId !== undefined) {
+                query = query.eq('Q_94', filters.municipioId);
+            }
+
+            // Apply age range filter if provided (Q_75 is the age column)
+            if (filters?.edadRangeId !== undefined) {
+                const ageRange = Object.values(AGE_RANGES).find(r => r.id === filters.edadRangeId)
+                if (ageRange) {
+                    query = query.gte('Q_75', ageRange.min).lte('Q_75', ageRange.max);
+                }
             }
 
             // Filter to valid sexo values (using SEXO_VALUES constants)
@@ -378,13 +526,23 @@ export const AnalyticsService = {
                 return null;
             }
 
+            // Apply client-side filters for grouped values
+            const filteredData = applyClientSideFilters(
+                data as Record<string, unknown>[],
+                filters
+            )
+
+            if (filteredData.length === 0) {
+                return null;
+            }
+
             // Group data by sexo
             const sexoGroups: { [key: number]: Record<string, unknown>[] } = {
                 [SEXO_VALUES.HOMBRE]: [],
                 [SEXO_VALUES.MUJER]: [],
             };
 
-            data.forEach((row) => {
+            filteredData.forEach((row) => {
                 const sexoVal = getColumnValue(row as Record<string, unknown>, 'Q_74');
                 if (typeof sexoVal === 'number' && SEXO_IDS.includes(sexoVal as typeof SEXO_IDS[number])) {
                     sexoGroups[sexoVal].push(row as Record<string, unknown>);
