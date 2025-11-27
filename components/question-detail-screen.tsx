@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
+    Animated,
     ScrollView,
     StyleSheet,
     Text,
@@ -45,11 +46,19 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false) // For overlay loading on filter change
     const [error, setError] = useState<string | null>(null)
     const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
     const [selectedSexoId, setSelectedSexoId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
+
+    // Animation values for smooth transitions
+    const fadeAnim = useRef(new Animated.Value(1)).current
+    const overlayOpacity = useRef(new Animated.Value(0)).current
+
+    // Track if this is the initial load
+    const isInitialLoad = useRef(true)
 
     useEffect(() => {
         fetchDistribution()
@@ -95,8 +104,40 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     }, [distribution])
 
 
+    // Animation helper for chart transitions
+    const animateChartTransition = () => {
+        Animated.sequence([
+            Animated.timing(fadeAnim, {
+                toValue: 0.3,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+        ]).start()
+    }
+
     const fetchDistribution = async () => {
-        setIsLoading(true)
+        // Determine if this is initial load or a filter change
+        const hasExistingData = distribution !== null || groupedDistribution !== null
+        
+        if (isInitialLoad.current || !hasExistingData) {
+            // Initial load - show full loading screen
+            setIsLoading(true)
+            isInitialLoad.current = false
+        } else {
+            // Filter change - show overlay on existing chart
+            setIsRefreshing(true)
+            Animated.timing(overlayOpacity, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }).start()
+        }
+        
         setError(null)
         try {
             if (showGroupedBySexo) {
@@ -107,6 +148,10 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     selectedMunicipioId
                 )
                 if (data) {
+                    // Animate chart transition
+                    if (hasExistingData) {
+                        animateChartTransition()
+                    }
                     setGroupedDistribution(data)
                     setDistribution(null)
                 } else {
@@ -121,6 +166,10 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     selectedSexoId
                 )
                 if (data) {
+                    // Animate chart transition
+                    if (hasExistingData) {
+                        animateChartTransition()
+                    }
                     setDistribution(data)
                     setGroupedDistribution(null)
                 } else {
@@ -132,6 +181,13 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             setError('Error al cargar los datos.')
         } finally {
             setIsLoading(false)
+            setIsRefreshing(false)
+            // Hide overlay
+            Animated.timing(overlayOpacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start()
         }
     }
 
@@ -309,14 +365,28 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
                     </View>
 
-                    {/* Bar Chart */}
+                    {/* Bar Chart with Loading Overlay */}
                     {barChartData.length > 0 && (
                         <View style={styles.chartSection}>
-                            <DiscreteBarChart
-                                data={barChartData}
-                                title="Distribución de Respuestas"
-                                subtitle={`N válido = ${distribution.nValid}`}
-                            />
+                            <Animated.View style={{ opacity: fadeAnim }}>
+                                <DiscreteBarChart
+                                    data={barChartData}
+                                    title="Distribución de Respuestas"
+                                    subtitle={`N válido = ${distribution.nValid}`}
+                                />
+                            </Animated.View>
+                            {/* Loading Overlay */}
+                            {isRefreshing && (
+                                <Animated.View 
+                                    style={[
+                                        styles.chartOverlay,
+                                        { opacity: overlayOpacity }
+                                    ]}
+                                >
+                                    <ActivityIndicator size="large" color={brandColors.primary} />
+                                    <Text style={styles.overlayText}>Actualizando...</Text>
+                                </Animated.View>
+                            )}
                         </View>
                     )}
 
@@ -529,6 +599,24 @@ const styles = StyleSheet.create({
     chartSection: {
         paddingHorizontal: 16,
         paddingBottom: 8,
+        position: 'relative',
+    },
+    chartOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 16,
+    },
+    overlayText: {
+        marginTop: 12,
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.muted,
     },
     tableToggleButton: {
         marginHorizontal: 16,
