@@ -17,8 +17,9 @@ import { brandColors, typography } from '../styles/theme'
 import { FilterBar } from './analytics/filter-bar'
 import { ResultsView } from './analytics/results-view'
 import { SegmentationControls } from './analytics/segmentation-controls'
+import { HomeScreenProps } from './navigation/NavigationTypes'
 
-export function HomeScreen() {
+export function HomeScreen({ navigation }: HomeScreenProps) {
     const { session, profile, isGuest } = useAuthContext()
     const { selectedCategories } = useUserPreferences()
 
@@ -58,8 +59,8 @@ export function HomeScreen() {
         }))
     }
 
-    const handleQuestionSelect = (questionId: string | null) => {
-        setFilters((prev) => ({ ...prev, questionId: questionId ?? undefined }))
+    const handleQuestionSelect = (questionId: string) => {
+        navigation.navigate('Details', { userId: '123', questionId: questionId });
     }
 
     const handleSegmentationChange = (segFilters: {

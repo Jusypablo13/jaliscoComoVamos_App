@@ -13,7 +13,7 @@ import { brandColors, typography } from '../../styles/theme'
 type FilterBarProps = {
     onSearch: (query: string) => void
     onThemeSelect: (theme: string | null) => void
-    onQuestionSelect: (questionId: string | null) => void
+    onQuestionSelect: (questionId: string) => void
     selectedTheme: string | null
     selectedQuestion: string | null
 }
