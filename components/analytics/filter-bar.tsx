@@ -133,28 +133,28 @@ export function FilterBar({
             {selectedTheme && questions.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.label}>Preguntas</Text>
-                    <View style={styles.questionsList}>
-                        {questions.map((q) => (
-                            <TouchableOpacity
+                        <View style={styles.questionsList}>
+                            {questions.map((q) => (
+                                <TouchableOpacity
                                 key={q.pregunta_id}
                                 style={[
                                     styles.questionItem,
                                     selectedQuestion === q.pregunta_id && styles.questionItemSelected,
                                 ]}
                                 onPress={() => onQuestionSelect(q.pregunta_id)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.questionText,
-                                        selectedQuestion === q.pregunta_id &&
-                                        styles.questionTextSelected,
-                                    ]}
                                 >
-                                    {q.texto_pregunta?.trim() || q.pregunta_id}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                                    <Text
+                                        style={[
+                                            styles.questionText,
+                                            selectedQuestion === q.pregunta_id &&
+                                            styles.questionTextSelected,
+                                        ]}
+                                        >
+                                        {q.texto_pregunta?.trim() || q.pregunta_id}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                 </View>
             )}
         </View>

@@ -74,32 +74,26 @@ export function HomeScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.welcomeTitle}>
-                        ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
-                    </Text>
-                    <Text style={styles.welcomeSubtitle}>
-                        Explora los datos del Observatorio
-                    </Text>
+        <ScrollView>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <View>
+                        <Text style={styles.welcomeTitle}>
+                            ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
+                        </Text>
+                        <Text style={styles.welcomeSubtitle}>
+                            Explora los datos del Observatorio
+                        </Text>
+                    </View>
                 </View>
-            </View>
 
-            <FilterBar
-                onSearch={handleSearch}
-                onThemeSelect={handleThemeSelect}
-                onQuestionSelect={handleQuestionSelect}
-                selectedTheme={filters.theme ?? null}
-                selectedQuestion={filters.questionId ?? null}
-            />
-
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-                }
-            >
+                <FilterBar
+                    onSearch={handleSearch}
+                    onThemeSelect={handleThemeSelect}
+                    onQuestionSelect={handleQuestionSelect}
+                    selectedTheme={filters.theme ?? null}
+                    selectedQuestion={filters.questionId ?? null}
+                />
                 <SegmentationControls
                     activeFilters={{
                         sexo: filters.sexo,
@@ -117,8 +111,8 @@ export function HomeScreen() {
                     isLoading={isLoading}
                     currentFilters={filters}
                 />
-            </ScrollView>
-        </View>
+            </View>
+        </ScrollView>
     )
 }
 
