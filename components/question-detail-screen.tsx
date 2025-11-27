@@ -4,6 +4,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
@@ -16,22 +17,34 @@ import { brandColors, typography } from '../styles/theme'
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
+// Municipality options with their IDs matching Q_94 values
+const MUNICIPIOS = [
+    { id: undefined, nombre: 'Todos los municipios (ZMG)' },
+    { id: 1, nombre: 'El Salto' },
+    { id: 2, nombre: 'Guadalajara' },
+    { id: 3, nombre: 'San Pedro Tlaquepaque' },
+    { id: 4, nombre: 'Tlajomulco de Zúñiga' },
+    { id: 5, nombre: 'Tonalá' },
+    { id: 6, nombre: 'Zapopan' },
+]
+
 export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const { questionId, column, questionText } = route.params
 
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
 
     useEffect(() => {
         fetchDistribution()
-    }, [questionId, column])
+    }, [questionId, column, selectedMunicipioId])
 
     const fetchDistribution = async () => {
         setIsLoading(true)
         setError(null)
         try {
-            const data = await AnalyticsService.fetchQuestionDistribution(questionId, column)
+            const data = await AnalyticsService.fetchQuestionDistribution(questionId, column, selectedMunicipioId)
             if (data) {
                 setDistribution(data)
             } else {
@@ -43,6 +56,11 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const getSelectedMunicipioName = () => {
+        const municipio = MUNICIPIOS.find(m => m.id === selectedMunicipioId)
+        return municipio?.nombre || MUNICIPIOS[0].nombre
     }
 
     if (isLoading) {
@@ -83,6 +101,41 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 {questionText && (
                     <Text style={styles.questionText}>{questionText}</Text>
                 )}
+            </View>
+
+            {/* Municipality Filter */}
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Municipio</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    <View style={styles.filterOptions}>
+                        {MUNICIPIOS.map((municipio) => (
+                            <TouchableOpacity
+                                key={municipio.id ?? 'all'}
+                                style={[
+                                    styles.filterOption,
+                                    selectedMunicipioId === municipio.id && styles.filterOptionSelected,
+                                ]}
+                                onPress={() => setSelectedMunicipioId(municipio.id)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.filterOptionText,
+                                        selectedMunicipioId === municipio.id && styles.filterOptionTextSelected,
+                                    ]}
+                                >
+                                    {municipio.nombre}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </ScrollView>
+            </View>
+
+            {/* Active Municipality Label */}
+            <View style={styles.activeMunicipioContainer}>
+                <Text style={styles.activeMunicipioLabel}>
+                    Municipio: <Text style={styles.activeMunicipioValue}>{getSelectedMunicipioName()}</Text>
+                </Text>
             </View>
 
             {/* Sample Size Info */}
@@ -326,5 +379,59 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: brandColors.muted,
         lineHeight: 18,
+    },
+    filterContainer: {
+        padding: 16,
+        backgroundColor: brandColors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E4EA',
+    },
+    filterLabel: {
+        fontFamily: typography.emphasis,
+        fontSize: 12,
+        color: brandColors.muted,
+        marginBottom: 8,
+    },
+    filterScroll: {
+        flexGrow: 0,
+    },
+    filterOptions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    filterOption: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F5F7FA',
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    filterOptionSelected: {
+        backgroundColor: brandColors.primary,
+        borderColor: brandColors.primary,
+    },
+    filterOptionText: {
+        fontFamily: typography.regular,
+        fontSize: 13,
+        color: brandColors.text,
+    },
+    filterOptionTextSelected: {
+        color: brandColors.surface,
+        fontFamily: typography.emphasis,
+    },
+    activeMunicipioContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: brandColors.highlight,
+    },
+    activeMunicipioLabel: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.text,
+    },
+    activeMunicipioValue: {
+        fontFamily: typography.emphasis,
+        color: brandColors.primary,
     },
 })
