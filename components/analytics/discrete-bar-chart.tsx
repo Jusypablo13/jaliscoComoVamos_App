@@ -121,15 +121,37 @@ export function DiscreteBarChart({
     // Determine bar color - use provided color or brand accent
     const effectiveBarColor = barColor || brandColors.accent
 
+    /**
+     * Parse a hex color string to RGB values.
+     * Supports both 6-character (#RRGGBB) and 3-character (#RGB) hex formats.
+     * Returns a fallback color if parsing fails.
+     */
+    const parseHexColor = (hex: string): { r: number; g: number; b: number } => {
+        const fallback = { r: 218, g: 54, b: 77 } // brandColors.accent fallback
+        const cleanHex = hex.replace('#', '')
+        
+        if (cleanHex.length === 6) {
+            const r = parseInt(cleanHex.substring(0, 2), 16)
+            const g = parseInt(cleanHex.substring(2, 4), 16)
+            const b = parseInt(cleanHex.substring(4, 6), 16)
+            if (isNaN(r) || isNaN(g) || isNaN(b)) return fallback
+            return { r, g, b }
+        } else if (cleanHex.length === 3) {
+            // Handle short hex format (#RGB -> #RRGGBB)
+            const r = parseInt(cleanHex[0] + cleanHex[0], 16)
+            const g = parseInt(cleanHex[1] + cleanHex[1], 16)
+            const b = parseInt(cleanHex[2] + cleanHex[2], 16)
+            if (isNaN(r) || isNaN(g) || isNaN(b)) return fallback
+            return { r, g, b }
+        }
+        return fallback
+    }
+
     const chartConfig = {
         backgroundGradientFrom: brandColors.surface,
         backgroundGradientTo: brandColors.surface,
         color: (opacity = 1) => {
-            // Parse hex color and apply opacity
-            const hex = effectiveBarColor.replace('#', '')
-            const r = parseInt(hex.substring(0, 2), 16)
-            const g = parseInt(hex.substring(2, 4), 16)
-            const b = parseInt(hex.substring(4, 6), 16)
+            const { r, g, b } = parseHexColor(effectiveBarColor)
             return `rgba(${r}, ${g}, ${b}, ${opacity})`
         },
         labelColor: () => brandColors.text,
@@ -282,7 +304,6 @@ const styles = StyleSheet.create({
     },
     categoryScrollContent: {
         paddingHorizontal: 8,
-        gap: 8,
     },
     categoryButton: {
         paddingHorizontal: 16,
@@ -291,6 +312,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F7FA',
         borderWidth: 1,
         borderColor: '#E0E4EA',
+        marginRight: 8,
     },
     categoryButtonSelected: {
         backgroundColor: brandColors.primary,

@@ -96,7 +96,7 @@ export function BarChartPreview() {
                     2. Con categoría NS/NC
                 </Text>
                 <Text style={styles.sectionDescription}>
-                    Incluye respuestas &quot;No sabe/No contesta&quot;
+                    Incluye respuestas "No sabe/No contesta"
                 </Text>
                 <DiscreteBarChart
                     data={mockDataWithNsNc}
