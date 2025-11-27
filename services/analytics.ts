@@ -49,6 +49,22 @@ export type AggregatedResult = {
  */
 const NS_NC_VALUES = [99, 98, -1, 0]
 
+/**
+ * Sexo (gender) values used in the Q_74 column.
+ * These are used for filtering and grouping by gender.
+ */
+const SEXO_VALUES = {
+    HOMBRE: 1,
+    MUJER: 2,
+} as const
+
+const SEXO_LABELS: { [key: number]: string } = {
+    [SEXO_VALUES.HOMBRE]: 'Hombre',
+    [SEXO_VALUES.MUJER]: 'Mujer',
+}
+
+const SEXO_IDS = [SEXO_VALUES.HOMBRE, SEXO_VALUES.MUJER] as const
+
 export type QuestionDistributionItem = {
     value: number
     count: number
@@ -314,8 +330,8 @@ export const AnalyticsService = {
                 query = query.eq('Q_94', municipioId);
             }
 
-            // Filter to valid sexo values (1=Hombre, 2=Mujer)
-            query = query.gte('Q_74', 1).lte('Q_74', 2);
+            // Filter to valid sexo values (using SEXO_VALUES constants)
+            query = query.gte('Q_74', SEXO_VALUES.HOMBRE).lte('Q_74', SEXO_VALUES.MUJER);
 
             const { data, error } = await query;
 
@@ -330,13 +346,13 @@ export const AnalyticsService = {
 
             // Group data by sexo
             const sexoGroups: { [key: number]: Record<string, unknown>[] } = {
-                1: [], // Hombre
-                2: [], // Mujer
+                [SEXO_VALUES.HOMBRE]: [],
+                [SEXO_VALUES.MUJER]: [],
             };
 
             data.forEach((row) => {
                 const sexoVal = getColumnValue(row as Record<string, unknown>, 'Q_74');
-                if (typeof sexoVal === 'number' && (sexoVal === 1 || sexoVal === 2)) {
+                if (typeof sexoVal === 'number' && SEXO_IDS.includes(sexoVal as typeof SEXO_IDS[number])) {
                     sexoGroups[sexoVal].push(row as Record<string, unknown>);
                 }
             });
@@ -389,12 +405,7 @@ export const AnalyticsService = {
                 };
             };
 
-            const SEXO_LABELS: { [key: number]: string } = {
-                1: 'Hombre',
-                2: 'Mujer',
-            };
-
-            const groups: GroupedDistributionItem[] = [1, 2].map((sexoId) => {
+            const groups: GroupedDistributionItem[] = SEXO_IDS.map((sexoId) => {
                 const groupData = calculateGroupDistribution(sexoGroups[sexoId]);
                 return {
                     key: { sexo: SEXO_LABELS[sexoId] },

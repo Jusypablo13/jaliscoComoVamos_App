@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
     ActivityIndicator,
     ScrollView,
@@ -13,6 +13,7 @@ import {
     AnalyticsService,
     QuestionDistribution,
     GroupedQuestionDistribution,
+    QuestionDistributionItem,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
 
@@ -133,6 +134,38 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             .reduce((sum, item) => sum + item.percentage, 0)
         : 0
 
+    // Compute grouped table rows data for the cross-table view
+    const groupedTableRows = useMemo(() => {
+        if (!groupedDistribution) return []
+        
+        // Collect all unique response values across all groups
+        const allValues = new Set<number>()
+        groupedDistribution.groups.forEach(group => {
+            group.distribution.forEach(item => allValues.add(item.value))
+        })
+        
+        // Sort values ascending
+        const sortedValues = Array.from(allValues).sort((a, b) => a - b)
+        
+        // Build row data with isNsNc determined by checking all groups
+        return sortedValues.map(value => {
+            // Check if this value is NS/NC by looking at all groups
+            const isNsNc = groupedDistribution.groups.some(group => {
+                const item = group.distribution.find(d => d.value === value)
+                return item?.isNsNc ?? false
+            })
+            
+            // Get item data for each group
+            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] = 
+                groupedDistribution.groups.map(group => ({
+                    sexo: group.key.sexo,
+                    item: group.distribution.find(d => d.value === value),
+                }))
+            
+            return { value, isNsNc, groupItems }
+        })
+    }, [groupedDistribution])
+
     return (
         <ScrollView style={styles.container}>
             {/* Question Header */}
@@ -234,18 +267,15 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             {/* Active Filters Label */}
             <View style={styles.activeMunicipioContainer}>
                 <Text style={styles.activeMunicipioLabel}>
-                    Municipio: <Text style={styles.activeMunicipioValue}>{getSelectedMunicipioName()}</Text>
+                    {'Municipio: '}
+                    <Text style={styles.activeMunicipioValue}>{getSelectedMunicipioName()}</Text>
+                    {!showGroupedBySexo && ' | Sexo: '}
                     {!showGroupedBySexo && (
-                        <Text style={styles.activeMunicipioLabel}>
-                            {' | Sexo: '}
-                            <Text style={styles.activeMunicipioValue}>{getSelectedSexoName()}</Text>
-                        </Text>
+                        <Text style={styles.activeMunicipioValue}>{getSelectedSexoName()}</Text>
                     )}
+                    {showGroupedBySexo && ' | '}
                     {showGroupedBySexo && (
-                        <Text style={styles.activeMunicipioLabel}>
-                            {' | '}
-                            <Text style={styles.activeMunicipioValue}>Agrupado por Sexo</Text>
-                        </Text>
+                        <Text style={styles.activeMunicipioValue}>Agrupado por Sexo</Text>
                     )}
                 </Text>
             </View>
@@ -353,50 +383,34 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                             ))}
                         </View>
 
-                        {/* Get all unique values across both groups */}
-                        {(() => {
-                            const allValues = new Set<number>()
-                            groupedDistribution.groups.forEach(group => {
-                                group.distribution.forEach(item => allValues.add(item.value))
-                            })
-                            const sortedValues = Array.from(allValues).sort((a, b) => a - b)
-                            
-                            return sortedValues.map((value, index) => {
-                                const isNsNc = groupedDistribution.groups[0]?.distribution
-                                    .find(item => item.value === value)?.isNsNc || false
-                                
-                                return (
-                                    <View 
-                                        key={value} 
-                                        style={[
-                                            styles.tableRow,
-                                            index % 2 === 0 && styles.tableRowEven,
-                                            isNsNc && styles.tableRowNsNc,
-                                        ]}
+                        {/* Table Rows from memoized data */}
+                        {groupedTableRows.map((row, index) => (
+                            <View 
+                                key={row.value} 
+                                style={[
+                                    styles.tableRow,
+                                    index % 2 === 0 && styles.tableRowEven,
+                                    row.isNsNc && styles.tableRowNsNc,
+                                ]}
+                            >
+                                <Text style={[styles.tableCell, styles.valueColumn]}>
+                                    {row.value}
+                                    {row.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                </Text>
+                                {row.groupItems.map((groupItem) => (
+                                    <Text 
+                                        key={`${groupItem.sexo}-${row.value}`}
+                                        style={[styles.tableCell, styles.groupColumn]}
                                     >
-                                        <Text style={[styles.tableCell, styles.valueColumn]}>
-                                            {value}
-                                            {isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                        </Text>
-                                        {groupedDistribution.groups.map((group) => {
-                                            const item = group.distribution.find(d => d.value === value)
-                                            return (
-                                                <Text 
-                                                    key={`${group.key.sexo}-${value}`}
-                                                    style={[styles.tableCell, styles.groupColumn]}
-                                                >
-                                                    {item 
-                                                        ? (isNsNc 
-                                                            ? `${item.count}` 
-                                                            : `${item.count} (${item.percentage}%)`)
-                                                        : '0'}
-                                                </Text>
-                                            )
-                                        })}
-                                    </View>
-                                )
-                            })
-                        })()}
+                                        {groupItem.item 
+                                            ? (row.isNsNc 
+                                                ? `${groupItem.item.count}` 
+                                                : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
+                                            : '0'}
+                                    </Text>
+                                ))}
+                            </View>
+                        ))}
 
                         {/* Table Footer with totals */}
                         <View style={styles.tableFooter}>
