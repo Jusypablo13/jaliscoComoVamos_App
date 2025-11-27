@@ -17,8 +17,9 @@ import { brandColors, typography } from '../styles/theme'
 import { FilterBar } from './analytics/filter-bar'
 import { ResultsView } from './analytics/results-view'
 import { SegmentationControls } from './analytics/segmentation-controls'
+import { HomeScreenProps } from './navigation/NavigationTypes'
 
-export function HomeScreen() {
+export function HomeScreen({ navigation }: HomeScreenProps) {
     const { session, profile, isGuest } = useAuthContext()
     const { selectedCategories } = useUserPreferences()
 
@@ -58,8 +59,8 @@ export function HomeScreen() {
         }))
     }
 
-    const handleQuestionSelect = (questionId: string | null) => {
-        setFilters((prev) => ({ ...prev, questionId: questionId ?? undefined }))
+    const handleQuestionSelect = (questionId: string) => {
+        navigation.navigate('Details', { userId: '123', questionId: questionId });
     }
 
     const handleSegmentationChange = (segFilters: {
@@ -74,32 +75,26 @@ export function HomeScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.welcomeTitle}>
-                        ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
-                    </Text>
-                    <Text style={styles.welcomeSubtitle}>
-                        Explora los datos del Observatorio
-                    </Text>
+        <ScrollView>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <View>
+                        <Text style={styles.welcomeTitle}>
+                            ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
+                        </Text>
+                        <Text style={styles.welcomeSubtitle}>
+                            Explora los datos del Observatorio
+                        </Text>
+                    </View>
                 </View>
-            </View>
 
-            <FilterBar
-                onSearch={handleSearch}
-                onThemeSelect={handleThemeSelect}
-                onQuestionSelect={handleQuestionSelect}
-                selectedTheme={filters.theme ?? null}
-                selectedQuestion={filters.questionId ?? null}
-            />
-
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-                }
-            >
+                <FilterBar
+                    onSearch={handleSearch}
+                    onThemeSelect={handleThemeSelect}
+                    onQuestionSelect={handleQuestionSelect}
+                    selectedTheme={filters.theme ?? null}
+                    selectedQuestion={filters.questionId ?? null}
+                />
                 <SegmentationControls
                     activeFilters={{
                         sexo: filters.sexo,
@@ -117,8 +112,8 @@ export function HomeScreen() {
                     isLoading={isLoading}
                     currentFilters={filters}
                 />
-            </ScrollView>
-        </View>
+            </View>
+        </ScrollView>
     )
 }
 

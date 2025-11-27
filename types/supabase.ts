@@ -16,16 +16,19 @@ export interface Database {
                     id: number
                     pregunta_id: string
                     nombre_categoria: string
+                    texto_pregunta: string | null
                 }
                 Insert: {
                     id?: number
                     pregunta_id: string
                     nombre_categoria: string
+                    texto_pregunta?: string | null
                 }
                 Update: {
                     id?: number
                     pregunta_id?: string
                     nombre_categoria?: string
+                    texto_pregunta?: string | null
                 }
             }
 
