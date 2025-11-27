@@ -50,7 +50,39 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
 
     useEffect(() => {
         fetchDistribution()
-    }, [questionId, column, selectedMunicipioId, selectedSexoId, showGroupedBySexo])
+    }, [questionId, column, selectedMunicipioId, selectedSexoId, showGroupedBySexo]);
+
+    // Compute grouped table rows data for the cross-table view
+    const groupedTableRows = useMemo(() => {
+        if (!groupedDistribution) return []
+        
+        // Collect all unique response values across all groups
+        const allValues = new Set<number>()
+        groupedDistribution.groups.forEach(group => {
+            group.distribution.forEach(item => allValues.add(item.value))
+        })
+        
+        // Sort values ascending
+        const sortedValues = Array.from(allValues).sort((a, b) => a - b)
+        
+        // Build row data with isNsNc determined by checking all groups
+        return sortedValues.map(value => {
+            // Check if this value is NS/NC by looking at all groups
+            const isNsNc = groupedDistribution.groups.some(group => {
+                const item = group.distribution.find(d => d.value === value)
+                return item?.isNsNc ?? false
+            })
+            
+            // Get item data for each group
+            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] = 
+                groupedDistribution.groups.map(group => ({
+                    sexo: group.key.sexo,
+                    item: group.distribution.find(d => d.value === value),
+                }))
+            
+            return { value, isNsNc, groupItems }
+        })
+    }, [groupedDistribution]);
 
     const fetchDistribution = async () => {
         setIsLoading(true)
@@ -133,38 +165,6 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             .filter(item => !item.isNsNc)
             .reduce((sum, item) => sum + item.percentage, 0)
         : 0
-
-    // Compute grouped table rows data for the cross-table view
-    const groupedTableRows = useMemo(() => {
-        if (!groupedDistribution) return []
-        
-        // Collect all unique response values across all groups
-        const allValues = new Set<number>()
-        groupedDistribution.groups.forEach(group => {
-            group.distribution.forEach(item => allValues.add(item.value))
-        })
-        
-        // Sort values ascending
-        const sortedValues = Array.from(allValues).sort((a, b) => a - b)
-        
-        // Build row data with isNsNc determined by checking all groups
-        return sortedValues.map(value => {
-            // Check if this value is NS/NC by looking at all groups
-            const isNsNc = groupedDistribution.groups.some(group => {
-                const item = group.distribution.find(d => d.value === value)
-                return item?.isNsNc ?? false
-            })
-            
-            // Get item data for each group
-            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] = 
-                groupedDistribution.groups.map(group => ({
-                    sexo: group.key.sexo,
-                    item: group.distribution.find(d => d.value === value),
-                }))
-            
-            return { value, isNsNc, groupItems }
-        })
-    }, [groupedDistribution])
 
     return (
         <ScrollView style={styles.container}>
