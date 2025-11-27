@@ -64,6 +64,24 @@ export type QuestionDistribution = {
     distribution: QuestionDistributionItem[]
 }
 
+export type SexoGroupKey = {
+    sexo: string // "Hombre" or "Mujer"
+}
+
+export type GroupedDistributionItem = {
+    key: SexoGroupKey
+    n: number
+    nValid: number
+    distribution: QuestionDistributionItem[]
+}
+
+export type GroupedQuestionDistribution = {
+    questionId: number
+    column: string
+    groupBy: string[] // e.g., ["sexo"]
+    groups: GroupedDistributionItem[]
+}
+
 export const AnalyticsService = {
     async fetchAggregatedData(
         filters: AnalyticsFilters
@@ -169,25 +187,28 @@ export const AnalyticsService = {
 
     /**
      * Fetches the distribution of responses for a single question.
-     * Optionally filters by municipality using the Q_94 column.
+     * Optionally filters by municipality using the Q_94 column and/or by sexo using Q_74.
      * This function:
      * 1. Queries Supabase for all responses to the specified question column
      * 2. Optionally filters by municipality (Q_94 = municipioId)
-     * 3. Calculates distribution counts for each response value
-     * 4. Calculates percentages excluding NS/NC responses
+     * 3. Optionally filters by sexo (Q_74 = sexoId: 1=Hombre, 2=Mujer)
+     * 4. Calculates distribution counts for each response value
+     * 5. Calculates percentages excluding NS/NC responses
      * 
      * @param questionId - The numeric ID of the question (e.g., 31)
      * @param column - The column name in the encuesta table (e.g., "Q_31")
      * @param municipioId - Optional municipality ID (1-6) to filter results. If undefined, returns global ZMG results.
+     * @param sexoId - Optional sexo ID (1=Hombre, 2=Mujer) to filter results. If undefined, returns results for both sexes.
      * @returns QuestionDistribution object with counts and percentages
      */
     async fetchQuestionDistribution(
         questionId: number,
         column: string,
-        municipioId?: number
+        municipioId?: number,
+        sexoId?: number
     ): Promise<QuestionDistribution | null> {
         try {
-            // Fetch the column we need from encuestalol, optionally filtered by municipality
+            // Fetch the column we need from encuestalol, optionally filtered by municipality and/or sexo
             let query = supabase
                 .from('encuestalol')
                 .select(column)
@@ -196,6 +217,11 @@ export const AnalyticsService = {
             // Apply municipality filter if provided (Q_94 is the municipality column)
             if (municipioId !== undefined) {
                 query = query.eq('Q_94', municipioId);
+            }
+
+            // Apply sexo filter if provided (Q_74 is the sexo column: 1=Hombre, 2=Mujer)
+            if (sexoId !== undefined) {
+                query = query.eq('Q_74', sexoId);
             }
 
             const { data, error } = await query;
@@ -258,6 +284,135 @@ export const AnalyticsService = {
         } catch (error) {
             console.error('Analytics Service Error (fetchQuestionDistribution):', error)
             return null
+        }
+    },
+
+    /**
+     * Fetches the distribution of responses for a single question, grouped by sexo.
+     * Returns separate distribution data for Hombre and Mujer.
+     * Optionally filters by municipality using the Q_94 column.
+     * 
+     * @param questionId - The numeric ID of the question (e.g., 31)
+     * @param column - The column name in the encuesta table (e.g., "Q_31")
+     * @param municipioId - Optional municipality ID (1-6) to filter results. If undefined, returns global ZMG results.
+     * @returns GroupedQuestionDistribution object with distribution data per sexo group
+     */
+    async fetchQuestionDistributionGroupedBySexo(
+        questionId: number,
+        column: string,
+        municipioId?: number
+    ): Promise<GroupedQuestionDistribution | null> {
+        try {
+            // Fetch the column we need plus Q_74 (sexo) from encuestalol
+            let query = supabase
+                .from('encuestalol')
+                .select(`${column}, Q_74`)
+                .limit(3000);
+
+            // Apply municipality filter if provided (Q_94 is the municipality column)
+            if (municipioId !== undefined) {
+                query = query.eq('Q_94', municipioId);
+            }
+
+            // Filter to valid sexo values (1=Hombre, 2=Mujer)
+            query = query.gte('Q_74', 1).lte('Q_74', 2);
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error fetching grouped question distribution:', error);
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                return null;
+            }
+
+            // Group data by sexo
+            const sexoGroups: { [key: number]: Record<string, unknown>[] } = {
+                1: [], // Hombre
+                2: [], // Mujer
+            };
+
+            data.forEach((row) => {
+                const sexoVal = getColumnValue(row as Record<string, unknown>, 'Q_74');
+                if (typeof sexoVal === 'number' && (sexoVal === 1 || sexoVal === 2)) {
+                    sexoGroups[sexoVal].push(row as Record<string, unknown>);
+                }
+            });
+
+            // Calculate distribution for each group
+            const calculateGroupDistribution = (
+                rows: Record<string, unknown>[]
+            ): { n: number; nValid: number; distribution: QuestionDistributionItem[] } => {
+                const valueCounts: Record<number, number> = {};
+                let totalResponses = 0;
+
+                rows.forEach((row) => {
+                    const val = getColumnValue(row, column);
+                    if (typeof val === 'number' && !isNaN(val)) {
+                        valueCounts[val] = (valueCounts[val] || 0) + 1;
+                        totalResponses++;
+                    }
+                });
+
+                // Calculate valid responses (excluding NS/NC) for percentage calculation
+                let validResponses = 0;
+                Object.entries(valueCounts).forEach(([value, count]) => {
+                    const numValue = parseInt(value, 10);
+                    if (!NS_NC_VALUES.includes(numValue)) {
+                        validResponses += count;
+                    }
+                });
+
+                // Build distribution array with percentages
+                const distribution: QuestionDistributionItem[] = Object.entries(valueCounts)
+                    .map(([value, count]) => {
+                        const numValue = parseInt(value, 10);
+                        const isNsNc = NS_NC_VALUES.includes(numValue);
+                        const percentage = validResponses > 0 && !isNsNc
+                            ? parseFloat(((count / validResponses) * 100).toFixed(1))
+                            : 0;
+                        return {
+                            value: numValue,
+                            count,
+                            percentage,
+                            isNsNc,
+                        };
+                    })
+                    .sort((a, b) => a.value - b.value);
+
+                return {
+                    n: totalResponses,
+                    nValid: validResponses,
+                    distribution,
+                };
+            };
+
+            const SEXO_LABELS: { [key: number]: string } = {
+                1: 'Hombre',
+                2: 'Mujer',
+            };
+
+            const groups: GroupedDistributionItem[] = [1, 2].map((sexoId) => {
+                const groupData = calculateGroupDistribution(sexoGroups[sexoId]);
+                return {
+                    key: { sexo: SEXO_LABELS[sexoId] },
+                    n: groupData.n,
+                    nValid: groupData.nValid,
+                    distribution: groupData.distribution,
+                };
+            });
+
+            return {
+                questionId,
+                column,
+                groupBy: ['sexo'],
+                groups,
+            };
+        } catch (error) {
+            console.error('Analytics Service Error (fetchQuestionDistributionGroupedBySexo):', error);
+            return null;
         }
     },
 }

@@ -12,6 +12,7 @@ import { RootStackParamList } from './navigation/NavigationTypes'
 import {
     AnalyticsService,
     QuestionDistribution,
+    GroupedQuestionDistribution,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
 
@@ -28,27 +29,59 @@ const MUNICIPIOS = [
     { id: 6, nombre: 'Zapopan' },
 ]
 
+// Sexo options with their IDs matching Q_74 values
+const SEXOS = [
+    { id: undefined, nombre: 'Todos' },
+    { id: 1, nombre: 'Hombre' },
+    { id: 2, nombre: 'Mujer' },
+]
+
 export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const { questionId, column, questionText } = route.params
 
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
+    const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [selectedMunicipioId, setSelectedMunicipioId] = useState<number | undefined>(undefined)
+    const [selectedSexoId, setSelectedSexoId] = useState<number | undefined>(undefined)
+    const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
 
     useEffect(() => {
         fetchDistribution()
-    }, [questionId, column, selectedMunicipioId])
+    }, [questionId, column, selectedMunicipioId, selectedSexoId, showGroupedBySexo])
 
     const fetchDistribution = async () => {
         setIsLoading(true)
         setError(null)
         try {
-            const data = await AnalyticsService.fetchQuestionDistribution(questionId, column, selectedMunicipioId)
-            if (data) {
-                setDistribution(data)
+            if (showGroupedBySexo) {
+                // Fetch grouped distribution by sexo
+                const data = await AnalyticsService.fetchQuestionDistributionGroupedBySexo(
+                    questionId, 
+                    column, 
+                    selectedMunicipioId
+                )
+                if (data) {
+                    setGroupedDistribution(data)
+                    setDistribution(null)
+                } else {
+                    setError('No se encontraron datos para esta pregunta.')
+                }
             } else {
-                setError('No se encontraron datos para esta pregunta.')
+                // Fetch simple distribution with optional sexo filter
+                const data = await AnalyticsService.fetchQuestionDistribution(
+                    questionId, 
+                    column, 
+                    selectedMunicipioId, 
+                    selectedSexoId
+                )
+                if (data) {
+                    setDistribution(data)
+                    setGroupedDistribution(null)
+                } else {
+                    setError('No se encontraron datos para esta pregunta.')
+                }
             }
         } catch (err) {
             console.error('Error fetching distribution:', err)
@@ -61,6 +94,11 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const getSelectedMunicipioName = () => {
         const municipio = MUNICIPIOS.find(m => m.id === selectedMunicipioId)
         return municipio?.nombre || MUNICIPIOS[0].nombre
+    }
+
+    const getSelectedSexoName = () => {
+        const sexo = SEXOS.find(s => s.id === selectedSexoId)
+        return sexo?.nombre || SEXOS[0].nombre
     }
 
     if (isLoading) {
@@ -80,7 +118,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         )
     }
 
-    if (!distribution) {
+    if (!distribution && !groupedDistribution) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.emptyText}>No hay datos disponibles.</Text>
@@ -88,10 +126,12 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         )
     }
 
-    // Calculate the sum of percentages (should be ~100% for valid responses)
-    const percentageSum = distribution.distribution
-        .filter(item => !item.isNsNc)
-        .reduce((sum, item) => sum + item.percentage, 0)
+    // Calculate the sum of percentages for simple distribution (should be ~100% for valid responses)
+    const percentageSum = distribution 
+        ? distribution.distribution
+            .filter(item => !item.isNsNc)
+            .reduce((sum, item) => sum + item.percentage, 0)
+        : 0
 
     return (
         <ScrollView style={styles.container}>
@@ -131,80 +171,264 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 </ScrollView>
             </View>
 
-            {/* Active Municipality Label */}
+            {/* Sexo Filter */}
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterLabel}>Sexo</Text>
+                <View style={styles.sexoFilterRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                        <View style={styles.filterOptions}>
+                            {SEXOS.map((sexo) => (
+                                <TouchableOpacity
+                                    key={sexo.id ?? 'all'}
+                                    style={[
+                                        styles.filterOption,
+                                        !showGroupedBySexo && selectedSexoId === sexo.id && styles.filterOptionSelected,
+                                        showGroupedBySexo && styles.filterOptionDisabled,
+                                    ]}
+                                    onPress={() => {
+                                        if (!showGroupedBySexo) {
+                                            setSelectedSexoId(sexo.id)
+                                        }
+                                    }}
+                                    disabled={showGroupedBySexo}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.filterOptionText,
+                                            !showGroupedBySexo && selectedSexoId === sexo.id && styles.filterOptionTextSelected,
+                                            showGroupedBySexo && styles.filterOptionTextDisabled,
+                                        ]}
+                                    >
+                                        {sexo.nombre}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </ScrollView>
+                    {/* Toggle for grouped view */}
+                    <TouchableOpacity
+                        style={[
+                            styles.groupToggle,
+                            showGroupedBySexo && styles.groupToggleActive,
+                        ]}
+                        onPress={() => {
+                            setShowGroupedBySexo(!showGroupedBySexo)
+                            if (!showGroupedBySexo) {
+                                // Reset individual sexo filter when enabling grouped view
+                                setSelectedSexoId(undefined)
+                            }
+                        }}
+                    >
+                        <Text
+                            style={[
+                                styles.groupToggleText,
+                                showGroupedBySexo && styles.groupToggleTextActive,
+                            ]}
+                        >
+                            Tabla cruzada
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Active Filters Label */}
             <View style={styles.activeMunicipioContainer}>
                 <Text style={styles.activeMunicipioLabel}>
                     Municipio: <Text style={styles.activeMunicipioValue}>{getSelectedMunicipioName()}</Text>
+                    {!showGroupedBySexo && (
+                        <Text style={styles.activeMunicipioLabel}>
+                            {' | Sexo: '}
+                            <Text style={styles.activeMunicipioValue}>{getSelectedSexoName()}</Text>
+                        </Text>
+                    )}
+                    {showGroupedBySexo && (
+                        <Text style={styles.activeMunicipioLabel}>
+                            {' | '}
+                            <Text style={styles.activeMunicipioValue}>Agrupado por Sexo</Text>
+                        </Text>
+                    )}
                 </Text>
             </View>
 
-            {/* Sample Size Info */}
-            <View style={styles.sampleInfo}>
-                <View style={styles.sampleCard}>
-                    <Text style={styles.sampleLabel}>Muestra Total (N)</Text>
-                    <Text style={styles.sampleValue}>{distribution.n}</Text>
-                </View>
-                <View style={styles.sampleCard}>
-                    <Text style={styles.sampleLabel}>Respuestas Válidas</Text>
-                    <Text style={styles.sampleValue}>{distribution.nValid}</Text>
-                </View>
-            </View>
+            {/* Simple Distribution View */}
+            {distribution && !showGroupedBySexo && (
+                <>
+                    {/* Sample Size Info */}
+                    <View style={styles.sampleInfo}>
+                        <View style={styles.sampleCard}>
+                            <Text style={styles.sampleLabel}>Muestra Total (N)</Text>
+                            <Text style={styles.sampleValue}>{distribution.n}</Text>
+                        </View>
+                        <View style={styles.sampleCard}>
+                            <Text style={styles.sampleLabel}>Respuestas Válidas</Text>
+                            <Text style={styles.sampleValue}>{distribution.nValid}</Text>
+                        </View>
+                    </View>
 
-            {/* Distribution Table */}
-            <View style={styles.tableContainer}>
-                <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
-                
-                {/* Table Header */}
-                <View style={styles.tableHeader}>
-                    <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
-                    <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
-                    <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
-                </View>
+                    {/* Distribution Table */}
+                    <View style={styles.tableContainer}>
+                        <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
+                        
+                        {/* Table Header */}
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                            <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
+                            <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
+                        </View>
 
-                {/* Table Rows */}
-                {distribution.distribution.map((item, index) => (
-                    <View 
-                        key={item.value} 
-                        style={[
-                            styles.tableRow,
-                            index % 2 === 0 && styles.tableRowEven,
-                            item.isNsNc && styles.tableRowNsNc,
-                        ]}
-                    >
-                        <Text style={[styles.tableCell, styles.valueColumn]}>
-                            {item.value}
-                            {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                        {/* Table Rows */}
+                        {distribution.distribution.map((item, index) => (
+                            <View 
+                                key={item.value} 
+                                style={[
+                                    styles.tableRow,
+                                    index % 2 === 0 && styles.tableRowEven,
+                                    item.isNsNc && styles.tableRowNsNc,
+                                ]}
+                            >
+                                <Text style={[styles.tableCell, styles.valueColumn]}>
+                                    {item.value}
+                                    {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                </Text>
+                                <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
+                                <Text style={[styles.tableCell, styles.percentColumn]}>
+                                    {item.isNsNc ? '—' : `${item.percentage}%`}
+                                </Text>
+                            </View>
+                        ))}
+
+                        {/* Table Footer */}
+                        <View style={styles.tableFooter}>
+                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
+                            <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
+                            <Text style={[styles.tableFooterCell, styles.percentColumn]}>
+                                {percentageSum.toFixed(1)}%
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Methodological Note */}
+                    <View style={styles.noteContainer}>
+                        <Text style={styles.noteTitle}>Notas Metodológicas:</Text>
+                        <Text style={styles.noteText}>
+                            • Los porcentajes se calculan excluyendo las respuestas NS/NC (No sabe/No contesta).
                         </Text>
-                        <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
-                        <Text style={[styles.tableCell, styles.percentColumn]}>
-                            {item.isNsNc ? '—' : `${item.percentage}%`}
+                        <Text style={styles.noteText}>
+                            • N = {distribution.n} encuestados respondieron esta pregunta.
+                        </Text>
+                        <Text style={styles.noteText}>
+                            • N válido = {distribution.nValid} respuestas usadas para el cálculo de porcentajes.
                         </Text>
                     </View>
-                ))}
+                </>
+            )}
 
-                {/* Table Footer */}
-                <View style={styles.tableFooter}>
-                    <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
-                    <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
-                    <Text style={[styles.tableFooterCell, styles.percentColumn]}>
-                        {percentageSum.toFixed(1)}%
-                    </Text>
-                </View>
-            </View>
+            {/* Grouped Distribution View (Cross Table by Sexo) */}
+            {groupedDistribution && showGroupedBySexo && (
+                <>
+                    {/* Sample Size Info for Grouped Data */}
+                    <View style={styles.sampleInfo}>
+                        {groupedDistribution.groups.map((group) => (
+                            <View key={group.key.sexo} style={styles.sampleCard}>
+                                <Text style={styles.sampleLabel}>{group.key.sexo} (N)</Text>
+                                <Text style={styles.sampleValue}>{group.n}</Text>
+                            </View>
+                        ))}
+                    </View>
 
-            {/* Methodological Note */}
-            <View style={styles.noteContainer}>
-                <Text style={styles.noteTitle}>Notas Metodológicas:</Text>
-                <Text style={styles.noteText}>
-                    • Los porcentajes se calculan excluyendo las respuestas NS/NC (No sabe/No contesta).
-                </Text>
-                <Text style={styles.noteText}>
-                    • N = {distribution.n} encuestados respondieron esta pregunta.
-                </Text>
-                <Text style={styles.noteText}>
-                    • N válido = {distribution.nValid} respuestas usadas para el cálculo de porcentajes.
-                </Text>
-            </View>
+                    {/* Grouped Distribution Table */}
+                    <View style={styles.tableContainer}>
+                        <Text style={styles.sectionTitle}>Distribución por Sexo</Text>
+                        
+                        {/* Table Header with dynamic columns for each sexo */}
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                            {groupedDistribution.groups.map((group) => (
+                                <Text 
+                                    key={group.key.sexo} 
+                                    style={[styles.tableHeaderCell, styles.groupColumn]}
+                                >
+                                    {group.key.sexo}
+                                </Text>
+                            ))}
+                        </View>
+
+                        {/* Get all unique values across both groups */}
+                        {(() => {
+                            const allValues = new Set<number>()
+                            groupedDistribution.groups.forEach(group => {
+                                group.distribution.forEach(item => allValues.add(item.value))
+                            })
+                            const sortedValues = Array.from(allValues).sort((a, b) => a - b)
+                            
+                            return sortedValues.map((value, index) => {
+                                const isNsNc = groupedDistribution.groups[0]?.distribution
+                                    .find(item => item.value === value)?.isNsNc || false
+                                
+                                return (
+                                    <View 
+                                        key={value} 
+                                        style={[
+                                            styles.tableRow,
+                                            index % 2 === 0 && styles.tableRowEven,
+                                            isNsNc && styles.tableRowNsNc,
+                                        ]}
+                                    >
+                                        <Text style={[styles.tableCell, styles.valueColumn]}>
+                                            {value}
+                                            {isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                        </Text>
+                                        {groupedDistribution.groups.map((group) => {
+                                            const item = group.distribution.find(d => d.value === value)
+                                            return (
+                                                <Text 
+                                                    key={`${group.key.sexo}-${value}`}
+                                                    style={[styles.tableCell, styles.groupColumn]}
+                                                >
+                                                    {item 
+                                                        ? (isNsNc 
+                                                            ? `${item.count}` 
+                                                            : `${item.count} (${item.percentage}%)`)
+                                                        : '0'}
+                                                </Text>
+                                            )
+                                        })}
+                                    </View>
+                                )
+                            })
+                        })()}
+
+                        {/* Table Footer with totals */}
+                        <View style={styles.tableFooter}>
+                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total (N)</Text>
+                            {groupedDistribution.groups.map((group) => (
+                                <Text 
+                                    key={`total-${group.key.sexo}`}
+                                    style={[styles.tableFooterCell, styles.groupColumn]}
+                                >
+                                    {group.n}
+                                </Text>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Methodological Note */}
+                    <View style={styles.noteContainer}>
+                        <Text style={styles.noteTitle}>Notas Metodológicas:</Text>
+                        <Text style={styles.noteText}>
+                            • Los porcentajes se calculan por grupo excluyendo las respuestas NS/NC (No sabe/No contesta).
+                        </Text>
+                        <Text style={styles.noteText}>
+                            • N total = {groupedDistribution.groups.reduce((sum, g) => sum + g.n, 0)} encuestados respondieron esta pregunta.
+                        </Text>
+                        {groupedDistribution.groups.map((group) => (
+                            <Text key={`note-${group.key.sexo}`} style={styles.noteText}>
+                                • N {group.key.sexo} = {group.n} (N válido = {group.nValid})
+                            </Text>
+                        ))}
+                    </View>
+                </>
+            )}
         </ScrollView>
     )
 }
@@ -433,5 +657,42 @@ const styles = StyleSheet.create({
     activeMunicipioValue: {
         fontFamily: typography.emphasis,
         color: brandColors.primary,
+    },
+    sexoFilterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    groupToggle: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F5F7FA',
+        borderWidth: 1,
+        borderColor: brandColors.muted,
+    },
+    groupToggleActive: {
+        backgroundColor: brandColors.highlight,
+        borderColor: brandColors.highlight,
+    },
+    groupToggleText: {
+        fontFamily: typography.regular,
+        fontSize: 12,
+        color: brandColors.muted,
+    },
+    groupToggleTextActive: {
+        fontFamily: typography.emphasis,
+        color: brandColors.primary,
+    },
+    filterOptionDisabled: {
+        backgroundColor: '#E8E8E8',
+        borderColor: '#E8E8E8',
+    },
+    filterOptionTextDisabled: {
+        color: '#A0A0A0',
+    },
+    groupColumn: {
+        flex: 1,
+        textAlign: 'center',
     },
 })
