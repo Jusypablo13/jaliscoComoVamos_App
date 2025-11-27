@@ -47,24 +47,6 @@ export interface Database {
                 }
             }
 
-            profiles: {
-                Row: {
-                    id: string
-                    full_name: string | null
-                    email: string | null
-                }
-                Insert: {
-                    id: string
-                    full_name: string
-                    email: string
-                }
-                Update: {
-                    id?: string
-                    full_name?: string
-                    email?: string
-                }
-            }
-
             encuestalol: {
                 Row: {
                     // Metadata
@@ -421,6 +403,28 @@ export interface Database {
                 }
                 Update: {
                     [key: string]: any
+                }
+            }
+        }
+    }
+    
+    auth: {
+        Tables: {
+            profiles: {
+                Row: {
+                    id: string
+                    full_name: string | null
+                    email: string | null
+                }
+                Insert: {
+                    id: string
+                    full_name: string
+                    email: string
+                }
+                Update: {
+                    id?: string
+                    full_name?: string
+                    email?: string
                 }
             }
         }
