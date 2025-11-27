@@ -66,6 +66,7 @@ export function FilterBar({
             .from('preguntas')
             .select('id, pregunta_id, texto_pregunta')
             .eq('nombre_categoria', theme)
+            .limit(3000);
 
         if (data) {
             setQuestions(data)

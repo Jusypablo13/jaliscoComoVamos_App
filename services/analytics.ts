@@ -69,9 +69,8 @@ export const AnalyticsService = {
         filters: AnalyticsFilters
     ): Promise<AggregatedResult | null> {
         try {
-            let query = supabase.from('encuestalol').select('*')
+            let query = supabase.from('encuestalol').select('*').limit(3000);
 
-            // Apply filters
             // Apply filters
             if (filters.sexo) {
                 query = query.eq('SEXO', filters.sexo)
@@ -188,6 +187,7 @@ export const AnalyticsService = {
             const { data, error } = await supabase
                 .from('encuestalol')
                 .select(column)
+                .limit(3000);
 
             if (error) {
                 console.error('Error fetching question distribution:', error)
