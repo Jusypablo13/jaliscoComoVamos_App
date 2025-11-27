@@ -87,6 +87,14 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         })
     }, [groupedDistribution]);
 
+    // Compute bar chart data from distribution
+    // Options are static so only distribution needs to be in dependency array
+    const barChartData = useMemo(() => {
+        if (!distribution) return []
+        return distributionToBarData(distribution, { includeNsNc: false })
+    }, [distribution])
+
+
     const fetchDistribution = async () => {
         setIsLoading(true)
         setError(null)
@@ -171,13 +179,6 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             .filter(item => !item.isNsNc)
             .reduce((sum, item) => sum + item.percentage, 0)
         : 0
-
-    // Compute bar chart data from distribution
-    // Options are static so only distribution needs to be in dependency array
-    const barChartData = useMemo(() => {
-        if (!distribution) return []
-        return distributionToBarData(distribution, { includeNsNc: false })
-    }, [distribution])
 
     return (
         <ScrollView style={styles.container}>
