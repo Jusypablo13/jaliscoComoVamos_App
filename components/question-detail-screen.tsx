@@ -17,12 +17,19 @@ import {
     QuestionDistributionItem,
     QuestionDistributionFilters,
     distributionToBarData,
+    distributionToBarDataWithLabels,
+    distributionToBarDataWithRanges,
+    generateRangeGroups,
+    CategoryLabel,
+    YesNoDistribution,
     AGE_RANGES,
     EDUCATION_GROUPS,
     QUALITY_OF_LIFE_GROUPS,
 } from '../services/analytics'
+import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
+import { YesNoPieChart } from './analytics/yes-no-pie-chart'
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
@@ -63,10 +70,11 @@ const CALIDADES_VIDA = [
 ]
 
 export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
-    const { questionId, column, questionText } = route.params
+    const { questionId, column, questionText, isYesOrNo, isClosedCategory, escalaMax } = route.params
 
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
+    const [categoryLabels, setCategoryLabels] = useState<CategoryLabel[] | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false) // For overlay loading on filter change
     const [error, setError] = useState<string | null>(null)
@@ -77,6 +85,21 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [selectedCalidadVidaGroupId, setSelectedCalidadVidaGroupId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
+
+    // Determine chart type based on question metadata
+    const chartType = useMemo(() => 
+        AnalyticsService.getChartType(isYesOrNo, isClosedCategory, escalaMax),
+        [isYesOrNo, isClosedCategory, escalaMax]
+    )
+
+    // Fetch category labels for closed category questions
+    useEffect(() => {
+        if (isClosedCategory === true) {
+            AnalyticsService.fetchCategoryLabels(column).then(labels => {
+                setCategoryLabels(labels)
+            })
+        }
+    }, [column, isClosedCategory])
 
     // Animation values for smooth transitions
     const fadeAnim = useRef(new Animated.Value(1)).current
@@ -131,11 +154,30 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     }, [groupedDistribution]);
 
     // Compute bar chart data from distribution
-    // Options are static so only distribution needs to be in dependency array
+    // Uses appropriate transformation based on chart type
     const barChartData = useMemo(() => {
         if (!distribution) return []
+        
+        // For closed category questions, use category labels if available
+        if (chartType === 'bar' && isClosedCategory === true && categoryLabels && categoryLabels.length > 0) {
+            return distributionToBarDataWithLabels(distribution, categoryLabels, { includeNsNc: false })
+        }
+        
+        // For numeric questions with high escala_max, use range grouping
+        if (chartType === 'ranged-bar' && escalaMax) {
+            const rangeGroups = generateRangeGroups(escalaMax)
+            return distributionToBarDataWithRanges(distribution, rangeGroups)
+        }
+        
+        // Default: standard bar data transformation
         return distributionToBarData(distribution, { includeNsNc: false })
-    }, [distribution])
+    }, [distribution, chartType, isClosedCategory, categoryLabels, escalaMax])
+
+    // Compute yes/no distribution for pie chart
+    const yesNoDistribution = useMemo<YesNoDistribution | null>(() => {
+        if (!distribution || chartType !== 'pie') return null
+        return AnalyticsService.calculateYesNoDistribution(distribution)
+    }, [distribution, chartType])
 
 
     // Animation helper for chart transitions
@@ -513,13 +555,38 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
                     </View>
 
-                    {/* Bar Chart with Loading Overlay */}
-                    {barChartData.length > 0 && (
+                    {/* Chart Section with Loading Overlay */}
+                    {chartType === 'pie' && yesNoDistribution ? (
+                        <View style={styles.chartSection}>
+                            <Animated.View style={{ opacity: fadeAnim }}>
+                                <YesNoPieChart
+                                    yesPercentage={yesNoDistribution.yesPercentage}
+                                    noPercentage={yesNoDistribution.noPercentage}
+                                    yesCount={yesNoDistribution.yesCount}
+                                    noCount={yesNoDistribution.noCount}
+                                    title="Distribución de Respuestas"
+                                    subtitle={`N válido = ${yesNoDistribution.nValid}`}
+                                />
+                            </Animated.View>
+                            {/* Loading Overlay */}
+                            {isRefreshing && (
+                                <Animated.View 
+                                    style={[
+                                        styles.chartOverlay,
+                                        { opacity: overlayOpacity }
+                                    ]}
+                                >
+                                    <ActivityIndicator size="large" color={brandColors.primary} />
+                                    <Text style={styles.overlayText}>Actualizando...</Text>
+                                </Animated.View>
+                            )}
+                        </View>
+                    ) : barChartData.length > 0 && (
                         <View style={styles.chartSection}>
                             <Animated.View style={{ opacity: fadeAnim }}>
                                 <DiscreteBarChart
                                     data={barChartData}
-                                    title="Distribución de Respuestas"
+                                    title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
                                     subtitle={`N válido = ${distribution.nValid}`}
                                 />
                             </Animated.View>

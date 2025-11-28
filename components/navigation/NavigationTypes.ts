@@ -10,6 +10,9 @@ export type RootStackParamList = {
         questionId: number; // Numeric ID of the question
         column: string; // Column name in the encuesta table (e.g., "Q_31")
         questionText?: string; // Optional question text for display
+        isYesOrNo?: boolean | null; // Whether this is a yes/no question
+        isClosedCategory?: boolean | null; // Whether this is a closed category question
+        escalaMax?: number | null; // Maximum scale value for numeric questions
     };
 };
 

@@ -14,6 +14,9 @@ export type Question = {
     id?: number
     pregunta_id: string
     texto_pregunta: string | null
+    is_yes_or_no?: boolean | null
+    is_closed_category?: boolean | null
+    escala_max?: number | null
 }
 
 type FilterBarProps = {
@@ -64,7 +67,7 @@ export function FilterBar({
     const fetchQuestionsForTheme = async (theme: string) => {
         const { data } = await supabase
             .from('preguntas')
-            .select('id, pregunta_id, texto_pregunta')
+            .select('id, pregunta_id, texto_pregunta, is_yes_or_no, is_closed_category, escala_max')
             .eq('nombre_categoria', theme)
             .limit(3000);
 
