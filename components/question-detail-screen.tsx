@@ -95,9 +95,17 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Fetch category labels for closed category questions
     useEffect(() => {
         if (isClosedCategory === true) {
-            AnalyticsService.fetchCategoryLabels(column).then(labels => {
-                setCategoryLabels(labels)
-            })
+            AnalyticsService.fetchCategoryLabels(column)
+                .then(labels => {
+                    setCategoryLabels(labels)
+                })
+                .catch(error => {
+                    console.error('Error fetching category labels:', error)
+                    setCategoryLabels(null)
+                })
+        } else {
+            // Clear stale category labels when question type changes
+            setCategoryLabels(null)
         }
     }, [column, isClosedCategory])
 

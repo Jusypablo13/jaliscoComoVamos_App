@@ -254,28 +254,28 @@ export type YesNoDistribution = {
 
 /**
  * Generates dynamic range groups for numeric questions with high escala_max.
- * Creates up to MAX_RANGE_GROUPS equal-sized ranges.
+ * Creates up to MAX_RANGE_GROUPS equal-sized ranges without gaps or overlaps.
  * 
  * @param escalaMax - Maximum value of the scale
  * @param minValue - Optional minimum value (default: 0)
  * @returns Array of RangeGroup objects
  */
 export function generateRangeGroups(escalaMax: number, minValue: number = 0): RangeGroup[] {
-    const range = escalaMax - minValue
+    const range = escalaMax - minValue + 1 // +1 to include both endpoints
     const groupSize = Math.ceil(range / MAX_RANGE_GROUPS)
     const groups: RangeGroup[] = []
 
-    for (let i = 0; i < MAX_RANGE_GROUPS; i++) {
-        const min = minValue + (i * groupSize)
-        const max = Math.min(minValue + ((i + 1) * groupSize) - 1, escalaMax)
+    let currentMin = minValue
+    for (let i = 0; i < MAX_RANGE_GROUPS && currentMin <= escalaMax; i++) {
+        const currentMax = Math.min(currentMin + groupSize - 1, escalaMax)
         
-        if (min <= escalaMax) {
-            groups.push({
-                min,
-                max,
-                label: min === max ? `${min}` : `${min}-${max}`,
-            })
-        }
+        groups.push({
+            min: currentMin,
+            max: currentMax,
+            label: currentMin === currentMax ? `${currentMin}` : `${currentMin}-${currentMax}`,
+        })
+        
+        currentMin = currentMax + 1
     }
 
     return groups

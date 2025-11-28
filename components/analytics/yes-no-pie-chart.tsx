@@ -101,8 +101,9 @@ export function YesNoPieChart({
         },
     ]
 
-    // Filter out slices with 0% to avoid rendering issues
-    const filteredData = pieData.filter(slice => slice.value > 0)
+    // Filter out slices with no counts to avoid rendering issues
+    // Use count > 0 instead of value > 0 to handle cases where small percentages round to 0
+    const filteredData = pieData.filter(slice => slice.count > 0)
 
     const chartConfig = {
         backgroundGradientFrom: brandColors.surface,
