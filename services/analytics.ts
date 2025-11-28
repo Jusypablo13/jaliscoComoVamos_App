@@ -48,7 +48,7 @@ export type AggregatedResult = {
  * Note: These values are specific to the survey design of Jalisco Cómo Vamos.
  * Modify this array if the survey methodology changes.
  */
-const NS_NC_VALUES = [99, 98, -1, 0]
+const NS_NC_VALUES = [-1, 0]
 
 /**
  * Sexo (gender) values used in the Q_74 column.
