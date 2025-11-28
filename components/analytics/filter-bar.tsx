@@ -14,6 +14,7 @@ export type Question = {
     id?: number
     pregunta_id: string
     texto_pregunta: string | null
+    descripcion?: string | null // Util para preguntas con descripciones largas
     is_yes_or_no?: boolean | null
     is_closed_category?: boolean | null
     escala_max?: number | null
