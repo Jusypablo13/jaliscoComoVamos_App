@@ -118,7 +118,7 @@ export function DiscreteBarChart({
     )
     const shouldUseColorLegend = useColorLegend ?? hasLongLabels
 
-    // Prepare labels for display - use numeric value + short index if using legend
+    // Prepare labels for display - use numeric value if using legend
     const displayLabels = shouldUseColorLegend
         ? data.map((item, index) => {
             // Show numeric value if available, otherwise just show index
@@ -139,15 +139,13 @@ export function DiscreteBarChart({
         ],
     }
 
-    // Get color for each bar
-    const getBarColor = (index: number): string => {
-        if (shouldUseColorLegend) {
-            return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
-        }
-        return barColor || brandColors.accent
+    // Get color for legend items (used for visual identification)
+    const getLegendColor = (index: number): string => {
+        return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
     }
 
     // Determine bar color - use provided color or brand accent
+    // Note: react-native-chart-kit uses a single color for all bars
     const effectiveBarColor = barColor || brandColors.accent
 
     /**
@@ -234,7 +232,7 @@ export function DiscreteBarChart({
                 <View style={styles.legendContainer}>
                     <Text style={styles.legendTitle}>Leyenda:</Text>
                     {data.map((item, index) => {
-                        const color = getBarColor(index)
+                        const color = getLegendColor(index)
                         const fullLabel = item.fullLabel || item.label
                         const numLabel = item.numericValue !== undefined ? String(item.numericValue) : String(index + 1)
                         return (
@@ -306,7 +304,7 @@ export function DiscreteBarChart({
             {selectedIndex !== null && (
                 <View style={[
                     styles.tooltipContainer,
-                    shouldUseColorLegend && { borderLeftColor: getBarColor(selectedIndex) }
+                    shouldUseColorLegend && { borderLeftColor: getLegendColor(selectedIndex) }
                 ]}>
                     <View style={styles.tooltipContent}>
                         <Text style={styles.tooltipLabel}>
@@ -314,7 +312,7 @@ export function DiscreteBarChart({
                         </Text>
                         <Text style={[
                             styles.tooltipValue,
-                            shouldUseColorLegend && { color: getBarColor(selectedIndex) }
+                            shouldUseColorLegend && { color: getLegendColor(selectedIndex) }
                         ]}>
                             {data[selectedIndex].value.toFixed(1)}%
                         </Text>
