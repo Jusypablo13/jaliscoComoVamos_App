@@ -187,6 +187,16 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         return AnalyticsService.calculateYesNoDistribution(distribution)
     }, [distribution, chartType])
 
+    // Helper to get category label for a numeric value
+    const getCategoryLabel = (numericValue: number): string | null => {
+        if (!categoryLabels || categoryLabels.length === 0) return null
+        const label = categoryLabels.find(cat => cat.numerico === numericValue)
+        return label?.valor_categorico || null
+    }
+
+    // Check if we have category labels to show
+    const hasCategoryLabels = isClosedCategory === true && categoryLabels && categoryLabels.length > 0
+
 
     // Animation helper for chart transitions
     const animateChartTransition = () => {
@@ -630,35 +640,49 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                             
                             {/* Table Header */}
                             <View style={styles.tableHeader}>
-                                <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                                <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
+                                {hasCategoryLabels && (
+                                    <Text style={[styles.tableHeaderCell, styles.labelColumn]}>Etiqueta</Text>
+                                )}
                                 <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
                                 <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
                             </View>
 
                             {/* Table Rows */}
-                            {distribution.distribution.map((item, index) => (
-                                <View 
-                                    key={item.value} 
-                                    style={[
-                                        styles.tableRow,
-                                        index % 2 === 0 && styles.tableRowEven,
-                                        item.isNsNc && styles.tableRowNsNc,
-                                    ]}
-                                >
-                                    <Text style={[styles.tableCell, styles.valueColumn]}>
-                                        {item.value}
-                                        {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                    </Text>
-                                    <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
-                                    <Text style={[styles.tableCell, styles.percentColumn]}>
-                                        {item.isNsNc ? '—' : `${item.percentage}%`}
-                                    </Text>
-                                </View>
-                            ))}
+                            {distribution.distribution.map((item, index) => {
+                                const categoryLabel = getCategoryLabel(item.value)
+                                return (
+                                    <View 
+                                        key={item.value} 
+                                        style={[
+                                            styles.tableRow,
+                                            index % 2 === 0 && styles.tableRowEven,
+                                            item.isNsNc && styles.tableRowNsNc,
+                                        ]}
+                                    >
+                                        <Text style={[styles.tableCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>
+                                            {item.value}
+                                            {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                        </Text>
+                                        {hasCategoryLabels && (
+                                            <Text style={[styles.tableCell, styles.labelColumn]} numberOfLines={2}>
+                                                {categoryLabel || '—'}
+                                            </Text>
+                                        )}
+                                        <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
+                                        <Text style={[styles.tableCell, styles.percentColumn]}>
+                                            {item.isNsNc ? '—' : `${item.percentage}%`}
+                                        </Text>
+                                    </View>
+                                )
+                            })}
 
                             {/* Table Footer */}
                             <View style={styles.tableFooter}>
-                                <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
+                                <Text style={[styles.tableFooterCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Total</Text>
+                                {hasCategoryLabels && (
+                                    <Text style={[styles.tableFooterCell, styles.labelColumn]}></Text>
+                                )}
                                 <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
                                 <Text style={[styles.tableFooterCell, styles.percentColumn]}>
                                     {percentageSum.toFixed(1)}%
@@ -702,7 +726,10 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         
                         {/* Table Header with dynamic columns for each sexo */}
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                            <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
+                            {hasCategoryLabels && (
+                                <Text style={[styles.tableHeaderCell, styles.labelColumn]}>Etiqueta</Text>
+                            )}
                             {groupedDistribution.groups.map((group) => (
                                 <Text 
                                     key={group.key.sexo} 
@@ -714,37 +741,48 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
 
                         {/* Table Rows from memoized data */}
-                        {groupedTableRows.map((row, index) => (
-                            <View 
-                                key={row.value} 
-                                style={[
-                                    styles.tableRow,
-                                    index % 2 === 0 && styles.tableRowEven,
-                                    row.isNsNc && styles.tableRowNsNc,
-                                ]}
-                            >
-                                <Text style={[styles.tableCell, styles.valueColumn]}>
-                                    {row.value}
-                                    {row.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                </Text>
-                                {row.groupItems.map((groupItem) => (
-                                    <Text 
-                                        key={`${groupItem.sexo}-${row.value}`}
-                                        style={[styles.tableCell, styles.groupColumn]}
-                                    >
-                                        {groupItem.item 
-                                            ? (row.isNsNc 
-                                                ? `${groupItem.item.count}` 
-                                                : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
-                                            : '0'}
+                        {groupedTableRows.map((row, index) => {
+                            const categoryLabel = getCategoryLabel(row.value)
+                            return (
+                                <View 
+                                    key={row.value} 
+                                    style={[
+                                        styles.tableRow,
+                                        index % 2 === 0 && styles.tableRowEven,
+                                        row.isNsNc && styles.tableRowNsNc,
+                                    ]}
+                                >
+                                    <Text style={[styles.tableCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>
+                                        {row.value}
+                                        {row.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
                                     </Text>
-                                ))}
-                            </View>
-                        ))}
+                                    {hasCategoryLabels && (
+                                        <Text style={[styles.tableCell, styles.labelColumn]} numberOfLines={2}>
+                                            {categoryLabel || '—'}
+                                        </Text>
+                                    )}
+                                    {row.groupItems.map((groupItem) => (
+                                        <Text 
+                                            key={`${groupItem.sexo}-${row.value}`}
+                                            style={[styles.tableCell, styles.groupColumn]}
+                                        >
+                                            {groupItem.item 
+                                                ? (row.isNsNc 
+                                                    ? `${groupItem.item.count}` 
+                                                    : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
+                                                : '0'}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )
+                        })}
 
                         {/* Table Footer with totals */}
                         <View style={styles.tableFooter}>
-                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total (N)</Text>
+                            <Text style={[styles.tableFooterCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Total (N)</Text>
+                            {hasCategoryLabels && (
+                                <Text style={[styles.tableFooterCell, styles.labelColumn]}></Text>
+                            )}
                             {groupedDistribution.groups.map((group) => (
                                 <Text 
                                     key={`total-${group.key.sexo}`}
@@ -969,6 +1007,12 @@ const styles = StyleSheet.create({
     },
     valueColumn: {
         flex: 2,
+    },
+    valueColumnWithLabel: {
+        flex: 1,
+    },
+    labelColumn: {
+        flex: 3,
     },
     countColumn: {
         flex: 1,

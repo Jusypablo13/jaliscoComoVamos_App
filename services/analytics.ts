@@ -335,12 +335,17 @@ export function distributionToBarDataWithLabels(
 
     return distribution.distribution
         .filter((item) => includeNsNc || !item.isNsNc)
-        .map((item) => ({
-            label: item.isNsNc 
+        .map((item) => {
+            const fullLabel = item.isNsNc 
                 ? nsNcLabel 
-                : labelMap.get(item.value) || String(item.value),
-            value: item.percentage,
-        }))
+                : labelMap.get(item.value) || String(item.value)
+            return {
+                label: fullLabel,
+                value: item.percentage,
+                numericValue: item.value,
+                fullLabel: fullLabel,
+            }
+        })
 }
 
 /**

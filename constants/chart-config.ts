@@ -37,3 +37,27 @@ export const YES_NO_VALUES = {
     NO: 2,
     NS_NC: 0,
 } as const
+
+/**
+ * Maximum character length for category labels displayed on histogram X-axis.
+ * If a label exceeds this length, the chart will use colors to identify categories
+ * and display full labels in a legend below the chart.
+ * 
+ * Default: 15 characters
+ */
+export const MAX_LABEL_LENGTH = 15
+
+/**
+ * Color palette for color-coded bar charts when labels are too long.
+ * These colors are used to distinguish different categories visually.
+ */
+export const CATEGORY_COLORS = [
+    '#163C74', // Primary blue
+    '#DA364D', // Accent red
+    '#D6DF65', // Highlight yellow
+    '#4CAF50', // Green
+    '#9C27B0', // Purple
+    '#FF9800', // Orange
+    '#00BCD4', // Cyan
+    '#795548', // Brown
+] as const
