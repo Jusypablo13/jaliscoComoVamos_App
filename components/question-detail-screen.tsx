@@ -463,12 +463,12 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     )
 
     // Render the dropdown modal
-    const renderDropdownModal = <T extends number | undefined>(
+    const renderDropdownModal = (
         dropdownKey: string,
         title: string,
-        options: FilterOption<T>[],
-        selectedId: T,
-        onSelect: (id: T) => void
+        options: FilterOption<number | undefined>[],
+        selectedId: number | undefined,
+        onSelect: (id: number | undefined) => void
     ) => (
         <Modal
             visible={activeDropdown === dropdownKey}
