@@ -8,21 +8,30 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { RootStackParamList } from './navigation/NavigationTypes'
 import {
     AnalyticsService,
+    Question,
     QuestionDistribution,
     GroupedQuestionDistribution,
     QuestionDistributionItem,
     QuestionDistributionFilters,
     distributionToBarData,
+    distributionToBarDataWithLabels,
+    distributionToBarDataWithRanges,
+    generateRangeGroups,
+    CategoryLabel,
+    YesNoDistribution,
     AGE_RANGES,
     EDUCATION_GROUPS,
     QUALITY_OF_LIFE_GROUPS,
 } from '../services/analytics'
+import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
+import { YesNoPieChart } from './analytics/yes-no-pie-chart'
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
@@ -62,11 +71,58 @@ const CALIDADES_VIDA = [
     ...Object.values(QUALITY_OF_LIFE_GROUPS).map(group => ({ id: group.id, nombre: group.label })),
 ]
 
-export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
-    const { questionId, column, questionText } = route.params
+export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreenProps) {
+    const { questionId, column, questionText, isYesOrNo, isClosedCategory, escalaMax, theme } = route.params
+
+    const [questions, setQuestions] = useState<Question[]>([])
+
+    // Fetch questions for navigation
+    useEffect(() => {
+        if (theme) {
+            AnalyticsService.fetchQuestionsForTheme(theme).then(setQuestions)
+        }
+    }, [theme])
+
+    const currentQuestionIndex = useMemo(() => {
+        return questions.findIndex(q => q.pregunta_id === column)
+    }, [questions, column])
+
+    const hasNext = currentQuestionIndex !== -1 && currentQuestionIndex < questions.length - 1
+    const hasPrev = currentQuestionIndex !== -1 && currentQuestionIndex > 0
+
+    const handleNext = () => {
+        if (hasNext) {
+            const nextQuestion = questions[currentQuestionIndex + 1]
+            navigation.setParams({
+                questionId: nextQuestion.id || 0,
+                column: nextQuestion.pregunta_id,
+                questionText: nextQuestion.texto_pregunta || undefined,
+                isYesOrNo: nextQuestion.is_yes_or_no,
+                isClosedCategory: nextQuestion.is_closed_category,
+                escalaMax: nextQuestion.escala_max,
+                theme
+            })
+        }
+    }
+
+    const handlePrev = () => {
+        if (hasPrev) {
+            const prevQuestion = questions[currentQuestionIndex - 1]
+            navigation.setParams({
+                questionId: prevQuestion.id || 0,
+                column: prevQuestion.pregunta_id,
+                questionText: prevQuestion.texto_pregunta || undefined,
+                isYesOrNo: prevQuestion.is_yes_or_no,
+                isClosedCategory: prevQuestion.is_closed_category,
+                escalaMax: prevQuestion.escala_max,
+                theme
+            })
+        }
+    }
 
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
+    const [categoryLabels, setCategoryLabels] = useState<CategoryLabel[] | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false) // For overlay loading on filter change
     const [error, setError] = useState<string | null>(null)
@@ -77,6 +133,29 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [selectedCalidadVidaGroupId, setSelectedCalidadVidaGroupId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
+
+    // Determine chart type based on question metadata
+    const chartType = useMemo(() =>
+        AnalyticsService.getChartType(isYesOrNo, isClosedCategory, escalaMax),
+        [isYesOrNo, isClosedCategory, escalaMax]
+    )
+
+    // Fetch category labels for closed category questions
+    useEffect(() => {
+        if (isClosedCategory === true) {
+            AnalyticsService.fetchCategoryLabels(column)
+                .then(labels => {
+                    setCategoryLabels(labels)
+                })
+                .catch(error => {
+                    console.error('Error fetching category labels:', error)
+                    setCategoryLabels(null)
+                })
+        } else {
+            // Clear stale category labels when question type changes
+            setCategoryLabels(null)
+        }
+    }, [column, isClosedCategory])
 
     // Animation values for smooth transitions
     const fadeAnim = useRef(new Animated.Value(1)).current
@@ -101,16 +180,16 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Compute grouped table rows data for the cross-table view
     const groupedTableRows = useMemo(() => {
         if (!groupedDistribution) return []
-        
+
         // Collect all unique response values across all groups
         const allValues = new Set<number>()
         groupedDistribution.groups.forEach(group => {
             group.distribution.forEach(item => allValues.add(item.value))
         })
-        
+
         // Sort values ascending
         const sortedValues = Array.from(allValues).sort((a, b) => a - b)
-        
+
         // Build row data with isNsNc determined by checking all groups
         return sortedValues.map(value => {
             // Check if this value is NS/NC by looking at all groups
@@ -118,24 +197,53 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 const item = group.distribution.find(d => d.value === value)
                 return item?.isNsNc ?? false
             })
-            
+
             // Get item data for each group
-            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] = 
+            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] =
                 groupedDistribution.groups.map(group => ({
                     sexo: group.key.sexo,
                     item: group.distribution.find(d => d.value === value),
                 }))
-            
+
             return { value, isNsNc, groupItems }
         })
     }, [groupedDistribution]);
 
     // Compute bar chart data from distribution
-    // Options are static so only distribution needs to be in dependency array
+    // Uses appropriate transformation based on chart type
     const barChartData = useMemo(() => {
         if (!distribution) return []
+
+        // For closed category questions, use category labels if available
+        if (chartType === 'bar' && isClosedCategory === true && categoryLabels && categoryLabels.length > 0) {
+            return distributionToBarDataWithLabels(distribution, categoryLabels, { includeNsNc: false })
+        }
+
+        // For numeric questions with high escala_max, use range grouping
+        if (chartType === 'ranged-bar' && escalaMax) {
+            const rangeGroups = generateRangeGroups(escalaMax)
+            return distributionToBarDataWithRanges(distribution, rangeGroups)
+        }
+
+        // Default: standard bar data transformation
         return distributionToBarData(distribution, { includeNsNc: false })
-    }, [distribution])
+    }, [distribution, chartType, isClosedCategory, categoryLabels, escalaMax])
+
+    // Compute yes/no distribution for pie chart
+    const yesNoDistribution = useMemo<YesNoDistribution | null>(() => {
+        if (!distribution || chartType !== 'pie') return null
+        return AnalyticsService.calculateYesNoDistribution(distribution)
+    }, [distribution, chartType])
+
+    // Helper to get category label for a numeric value
+    const getCategoryLabel = (numericValue: number): string | null => {
+        if (!categoryLabels || categoryLabels.length === 0) return null
+        const label = categoryLabels.find(cat => cat.numerico === numericValue)
+        return label?.valor_categorico || null
+    }
+
+    // Check if we have category labels to show
+    const hasCategoryLabels = isClosedCategory === true && categoryLabels && categoryLabels.length > 0
 
 
     // Animation helper for chart transitions
@@ -157,7 +265,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const fetchDistribution = async () => {
         // Determine if this is initial load or a filter change
         const hasExistingData = distribution !== null || groupedDistribution !== null
-        
+
         if (isInitialLoad.current || !hasExistingData) {
             // Initial load - show full loading screen
             setIsLoading(true)
@@ -171,15 +279,15 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 useNativeDriver: true,
             }).start()
         }
-        
+
         setError(null)
-        
+
         try {
             if (showGroupedBySexo) {
                 // Fetch grouped distribution by sexo
                 const data = await AnalyticsService.fetchQuestionDistributionGroupedBySexo(
-                    questionId, 
-                    column, 
+                    questionId,
+                    column,
                     filters
                 )
                 if (data) {
@@ -195,8 +303,8 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             } else {
                 // Fetch simple distribution with optional filters
                 const data = await AnalyticsService.fetchQuestionDistribution(
-                    questionId, 
-                    column, 
+                    questionId,
+                    column,
                     filters
                 )
                 if (data) {
@@ -303,7 +411,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     }
 
     // Calculate the sum of percentages for simple distribution (should be ~100% for valid responses)
-    const percentageSum = distribution 
+    const percentageSum = distribution
         ? distribution.distribution
             .filter(item => !item.isNsNc)
             .reduce((sum, item) => sum + item.percentage, 0)
@@ -313,7 +421,25 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         <ScrollView style={styles.container}>
             {/* Question Header */}
             <View style={styles.header}>
-                <Text style={styles.columnLabel}>{column}</Text>
+                <View style={styles.headerTopRow}>
+                    <TouchableOpacity
+                        onPress={handlePrev}
+                        disabled={!hasPrev}
+                        style={styles.navButton}
+                    >
+                        <Ionicons name="chevron-back" size={24} color={hasPrev ? brandColors.primary : brandColors.muted} />
+                    </TouchableOpacity>
+
+                    <Text style={styles.columnLabel}>{column}</Text>
+
+                    <TouchableOpacity
+                        onPress={handleNext}
+                        disabled={!hasNext}
+                        style={styles.navButton}
+                    >
+                        <Ionicons name="chevron-forward" size={24} color={hasNext ? brandColors.primary : brandColors.muted} />
+                    </TouchableOpacity>
+                </View>
                 {questionText && (
                     <Text style={styles.questionText}>{questionText}</Text>
                 )}
@@ -513,19 +639,44 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
                     </View>
 
-                    {/* Bar Chart with Loading Overlay */}
-                    {barChartData.length > 0 && (
+                    {/* Chart Section with Loading Overlay */}
+                    {chartType === 'pie' && yesNoDistribution ? (
+                        <View style={styles.chartSection}>
+                            <Animated.View style={{ opacity: fadeAnim }}>
+                                <YesNoPieChart
+                                    yesPercentage={yesNoDistribution.yesPercentage}
+                                    noPercentage={yesNoDistribution.noPercentage}
+                                    yesCount={yesNoDistribution.yesCount}
+                                    noCount={yesNoDistribution.noCount}
+                                    title="Distribución de Respuestas"
+                                    subtitle={`N válido = ${yesNoDistribution.nValid}`}
+                                />
+                            </Animated.View>
+                            {/* Loading Overlay */}
+                            {isRefreshing && (
+                                <Animated.View
+                                    style={[
+                                        styles.chartOverlay,
+                                        { opacity: overlayOpacity }
+                                    ]}
+                                >
+                                    <ActivityIndicator size="large" color={brandColors.primary} />
+                                    <Text style={styles.overlayText}>Actualizando...</Text>
+                                </Animated.View>
+                            )}
+                        </View>
+                    ) : barChartData.length > 0 && (
                         <View style={styles.chartSection}>
                             <Animated.View style={{ opacity: fadeAnim }}>
                                 <DiscreteBarChart
                                     data={barChartData}
-                                    title="Distribución de Respuestas"
+                                    title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
                                     subtitle={`N válido = ${distribution.nValid}`}
                                 />
                             </Animated.View>
                             {/* Loading Overlay */}
                             {isRefreshing && (
-                                <Animated.View 
+                                <Animated.View
                                     style={[
                                         styles.chartOverlay,
                                         { opacity: overlayOpacity }
@@ -552,38 +703,52 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     {showTable && (
                         <View style={styles.tableContainer}>
                             <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
-                            
+
                             {/* Table Header */}
                             <View style={styles.tableHeader}>
-                                <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                                <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
+                                {hasCategoryLabels && (
+                                    <Text style={[styles.tableHeaderCell, styles.labelColumn]}>Etiqueta</Text>
+                                )}
                                 <Text style={[styles.tableHeaderCell, styles.countColumn]}>Conteo</Text>
                                 <Text style={[styles.tableHeaderCell, styles.percentColumn]}>Porcentaje</Text>
                             </View>
 
                             {/* Table Rows */}
-                            {distribution.distribution.map((item, index) => (
-                                <View 
-                                    key={item.value} 
-                                    style={[
-                                        styles.tableRow,
-                                        index % 2 === 0 && styles.tableRowEven,
-                                        item.isNsNc && styles.tableRowNsNc,
-                                    ]}
-                                >
-                                    <Text style={[styles.tableCell, styles.valueColumn]}>
-                                        {item.value}
-                                        {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                    </Text>
-                                    <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
-                                    <Text style={[styles.tableCell, styles.percentColumn]}>
-                                        {item.isNsNc ? '—' : `${item.percentage}%`}
-                                    </Text>
-                                </View>
-                            ))}
+                            {distribution.distribution.map((item, index) => {
+                                const categoryLabel = getCategoryLabel(item.value)
+                                return (
+                                    <View
+                                        key={item.value}
+                                        style={[
+                                            styles.tableRow,
+                                            index % 2 === 0 && styles.tableRowEven,
+                                            item.isNsNc && styles.tableRowNsNc,
+                                        ]}
+                                    >
+                                        <Text style={[styles.tableCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>
+                                            {item.value}
+                                            {item.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
+                                        </Text>
+                                        {hasCategoryLabels && (
+                                            <Text style={[styles.tableCell, styles.labelColumn]} numberOfLines={2}>
+                                                {categoryLabel || '—'}
+                                            </Text>
+                                        )}
+                                        <Text style={[styles.tableCell, styles.countColumn]}>{item.count}</Text>
+                                        <Text style={[styles.tableCell, styles.percentColumn]}>
+                                            {item.isNsNc ? '—' : `${item.percentage}%`}
+                                        </Text>
+                                    </View>
+                                )
+                            })}
 
                             {/* Table Footer */}
                             <View style={styles.tableFooter}>
-                                <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total</Text>
+                                <Text style={[styles.tableFooterCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Total</Text>
+                                {hasCategoryLabels && (
+                                    <Text style={[styles.tableFooterCell, styles.labelColumn]}></Text>
+                                )}
                                 <Text style={[styles.tableFooterCell, styles.countColumn]}>{distribution.n}</Text>
                                 <Text style={[styles.tableFooterCell, styles.percentColumn]}>
                                     {percentageSum.toFixed(1)}%
@@ -624,13 +789,16 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     {/* Grouped Distribution Table */}
                     <View style={styles.tableContainer}>
                         <Text style={styles.sectionTitle}>Distribución por Sexo</Text>
-                        
+
                         {/* Table Header with dynamic columns for each sexo */}
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderCell, styles.valueColumn]}>Valor</Text>
+                            <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
+                            {hasCategoryLabels && (
+                                <Text style={[styles.tableHeaderCell, styles.labelColumn]}>Etiqueta</Text>
+                            )}
                             {groupedDistribution.groups.map((group) => (
-                                <Text 
-                                    key={group.key.sexo} 
+                                <Text
+                                    key={group.key.sexo}
                                     style={[styles.tableHeaderCell, styles.groupColumn]}
                                 >
                                     {group.key.sexo}
@@ -639,39 +807,50 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         </View>
 
                         {/* Table Rows from memoized data */}
-                        {groupedTableRows.map((row, index) => (
-                            <View 
-                                key={row.value} 
-                                style={[
-                                    styles.tableRow,
-                                    index % 2 === 0 && styles.tableRowEven,
-                                    row.isNsNc && styles.tableRowNsNc,
-                                ]}
-                            >
-                                <Text style={[styles.tableCell, styles.valueColumn]}>
-                                    {row.value}
-                                    {row.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
-                                </Text>
-                                {row.groupItems.map((groupItem) => (
-                                    <Text 
-                                        key={`${groupItem.sexo}-${row.value}`}
-                                        style={[styles.tableCell, styles.groupColumn]}
-                                    >
-                                        {groupItem.item 
-                                            ? (row.isNsNc 
-                                                ? `${groupItem.item.count}` 
-                                                : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
-                                            : '0'}
+                        {groupedTableRows.map((row, index) => {
+                            const categoryLabel = getCategoryLabel(row.value)
+                            return (
+                                <View
+                                    key={row.value}
+                                    style={[
+                                        styles.tableRow,
+                                        index % 2 === 0 && styles.tableRowEven,
+                                        row.isNsNc && styles.tableRowNsNc,
+                                    ]}
+                                >
+                                    <Text style={[styles.tableCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>
+                                        {row.value}
+                                        {row.isNsNc && <Text style={styles.nsNcLabel}> (NS/NC)</Text>}
                                     </Text>
-                                ))}
-                            </View>
-                        ))}
+                                    {hasCategoryLabels && (
+                                        <Text style={[styles.tableCell, styles.labelColumn]} numberOfLines={2}>
+                                            {categoryLabel || '—'}
+                                        </Text>
+                                    )}
+                                    {row.groupItems.map((groupItem) => (
+                                        <Text
+                                            key={`${groupItem.sexo}-${row.value}`}
+                                            style={[styles.tableCell, styles.groupColumn]}
+                                        >
+                                            {groupItem.item
+                                                ? (row.isNsNc
+                                                    ? `${groupItem.item.count}`
+                                                    : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
+                                                : '0'}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )
+                        })}
 
                         {/* Table Footer with totals */}
                         <View style={styles.tableFooter}>
-                            <Text style={[styles.tableFooterCell, styles.valueColumn]}>Total (N)</Text>
+                            <Text style={[styles.tableFooterCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Total (N)</Text>
+                            {hasCategoryLabels && (
+                                <Text style={[styles.tableFooterCell, styles.labelColumn]}></Text>
+                            )}
                             {groupedDistribution.groups.map((group) => (
-                                <Text 
+                                <Text
                                     key={`total-${group.key.sexo}`}
                                     style={[styles.tableFooterCell, styles.groupColumn]}
                                 >
@@ -895,6 +1074,12 @@ const styles = StyleSheet.create({
     valueColumn: {
         flex: 2,
     },
+    valueColumnWithLabel: {
+        flex: 1,
+    },
+    labelColumn: {
+        flex: 3,
+    },
     countColumn: {
         flex: 1,
         textAlign: 'right',
@@ -1012,5 +1197,14 @@ const styles = StyleSheet.create({
     groupColumn: {
         flex: 1,
         textAlign: 'center',
+    },
+    headerTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    navButton: {
+        padding: 4,
     },
 })

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { Database } from '../types/supabase'
+import { SCALE_MAX_THRESHOLD, MAX_RANGE_GROUPS, YES_NO_VALUES } from '../constants/chart-config'
 
 type EncuestaRow = Database['public']['Tables']['encuestalol']['Row']
 
@@ -47,7 +48,7 @@ export type AggregatedResult = {
  * Note: These values are specific to the survey design of Jalisco Cómo Vamos.
  * Modify this array if the survey methodology changes.
  */
-const NS_NC_VALUES = [99, 98, -1, 0]
+const NS_NC_VALUES = [-1, 0]
 
 /**
  * Sexo (gender) values used in the Q_74 column.
@@ -220,6 +221,67 @@ import type { BarDatum } from '../components/analytics/discrete-bar-chart'
 export type { BarDatum }
 
 /**
+ * Category label from the categoria_respuesta table.
+ * Maps numeric values to categorical text labels for closed category questions.
+ */
+export type CategoryLabel = {
+    numerico: number
+    valor_categorico: string
+}
+
+/**
+ * Range group for numeric questions with high escala_max.
+ * Used to group continuous values into discrete ranges.
+ */
+export type RangeGroup = {
+    min: number
+    max: number
+    label: string
+}
+
+/**
+ * Yes/No distribution data structure.
+ * Used for questions where is_yes_or_no = true.
+ */
+export type YesNoDistribution = {
+    yesCount: number
+    noCount: number
+    yesPercentage: number
+    noPercentage: number
+    nValid: number
+    n: number
+}
+
+/**
+ * Generates dynamic range groups for numeric questions with high escala_max.
+ * Creates up to MAX_RANGE_GROUPS equal-sized ranges without gaps or overlaps.
+ * 
+ * @param escalaMax - Maximum value of the scale
+ * @param minValue - Optional minimum value (default: 0)
+ * @returns Array of RangeGroup objects
+ */
+export function generateRangeGroups(escalaMax: number, minValue: number = 0): RangeGroup[] {
+    const range = escalaMax - minValue + 1 // +1 to include both endpoints
+    const groupSize = Math.ceil(range / MAX_RANGE_GROUPS)
+    const groups: RangeGroup[] = []
+
+    let currentMin = minValue
+    for (let i = 0; i < MAX_RANGE_GROUPS && currentMin <= escalaMax; i++) {
+        const currentMax = Math.min(currentMin + groupSize - 1, escalaMax)
+
+        groups.push({
+            min: currentMin,
+            max: currentMax,
+            label: currentMin === currentMax ? `${currentMin}` : `${currentMin}-${currentMax}`,
+        })
+
+        currentMin = currentMax + 1
+    }
+
+    return groups
+}
+
+/**
  * Adapter function that transforms QuestionDistribution data to BarDatum[] format
  * for use with the DiscreteBarChart component.
  * 
@@ -246,6 +308,83 @@ export function distributionToBarData(
             label: item.isNsNc ? nsNcLabel : String(item.value),
             value: item.percentage,
         }))
+}
+
+/**
+ * Transforms QuestionDistribution data to BarDatum[] format using category labels.
+ * Used for closed category questions where numeric values map to text labels.
+ * 
+ * @param distribution - The QuestionDistribution data from Supabase
+ * @param categoryLabels - Map of numeric values to text labels
+ * @param options - Optional configuration for the transformation
+ * @returns Array of BarDatum objects for the chart
+ */
+export function distributionToBarDataWithLabels(
+    distribution: QuestionDistribution,
+    categoryLabels: CategoryLabel[],
+    options?: {
+        includeNsNc?: boolean
+        nsNcLabel?: string
+    }
+): BarDatum[] {
+    const { includeNsNc = false, nsNcLabel = 'NS/NC' } = options || {}
+
+    // Create a map for quick lookup
+    const labelMap = new Map<number, string>()
+    categoryLabels.forEach(cat => labelMap.set(cat.numerico, cat.valor_categorico))
+
+    return distribution.distribution
+        .filter((item) => includeNsNc || !item.isNsNc)
+        .map((item) => {
+            const categoryLabel = item.isNsNc
+                ? nsNcLabel
+                : labelMap.get(item.value) || String(item.value)
+            return {
+                label: categoryLabel,
+                value: item.percentage,
+                numericValue: item.value,
+                fullLabel: categoryLabel,
+            }
+        })
+}
+
+/**
+ * Transforms QuestionDistribution data to BarDatum[] format using range groups.
+ * Used for numeric questions with high escala_max where values should be grouped.
+ * 
+ * @param distribution - The QuestionDistribution data from Supabase
+ * @param rangeGroups - Array of range groups to bucket values into
+ * @returns Array of BarDatum objects for the chart
+ */
+export function distributionToBarDataWithRanges(
+    distribution: QuestionDistribution,
+    rangeGroups: RangeGroup[]
+): BarDatum[] {
+    // Initialize counts for each range
+    const rangeCounts: { [label: string]: number } = {}
+    rangeGroups.forEach(group => {
+        rangeCounts[group.label] = 0
+    })
+
+    // Count valid responses (excluding NS/NC)
+    let totalValidCount = 0
+    distribution.distribution
+        .filter(item => !item.isNsNc)
+        .forEach(item => {
+            const group = rangeGroups.find(g => item.value >= g.min && item.value <= g.max)
+            if (group) {
+                rangeCounts[group.label] += item.count
+                totalValidCount += item.count
+            }
+        })
+
+    // Convert to percentages
+    return rangeGroups.map(group => ({
+        label: group.label,
+        value: totalValidCount > 0
+            ? parseFloat(((rangeCounts[group.label] / totalValidCount) * 100).toFixed(1))
+            : 0,
+    }))
 }
 
 export const AnalyticsService = {
@@ -375,7 +514,7 @@ export const AnalyticsService = {
             // Determine which columns we need to select for filtering
             const additionalColumns = getAdditionalColumnsForFilters(filters)
             const columnsToSelect = [column, ...additionalColumns]
-            
+
             // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
@@ -492,7 +631,7 @@ export const AnalyticsService = {
             // Determine which columns we need to select for filtering
             const additionalColumns = getAdditionalColumnsForFilters(filters)
             const columnsToSelect = [column, 'Q_74', ...additionalColumns]
-            
+
             // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
@@ -618,4 +757,143 @@ export const AnalyticsService = {
             return null;
         }
     },
+
+    /**
+     * Fetches category labels for a closed category question from categoria_respuesta table.
+     * 
+     * @param preguntaId - The pregunta_id (e.g., "Q_4") to fetch labels for
+     * @returns Array of CategoryLabel objects, or null if none found
+     */
+    async fetchCategoryLabels(preguntaId: string): Promise<CategoryLabel[] | null> {
+        try {
+            const { data, error } = await supabase
+                .from('categoria_respuesta')
+                .select('numerico, valor_categorico')
+                .eq('pregunta_id', preguntaId)
+                .order('numerico', { ascending: true });
+
+            if (error) {
+                console.error('Error fetching category labels:', error);
+                return null;
+            }
+
+            if (!data || data.length === 0) {
+                return null;
+            }
+
+            return data as CategoryLabel[];
+        } catch (error) {
+            console.error('Analytics Service Error (fetchCategoryLabels):', error);
+            return null;
+        }
+    },
+
+    /**
+     * Calculates Yes/No distribution for a question marked as is_yes_or_no = true.
+     * In the survey, 1 = Yes, 2 = No, 0 = NS/NC (excluded from percentage calculation).
+     * 
+     * @param distribution - The QuestionDistribution data
+     * @returns YesNoDistribution object with counts and percentages
+     */
+    calculateYesNoDistribution(distribution: QuestionDistribution): YesNoDistribution {
+        let yesCount = 0;
+        let noCount = 0;
+        let nValid = 0;
+        let n = distribution.n;
+
+        distribution.distribution.forEach(item => {
+            if (item.value === YES_NO_VALUES.YES) {
+                yesCount = item.count;
+                nValid += item.count;
+            } else if (item.value === YES_NO_VALUES.NO) {
+                noCount = item.count;
+                nValid += item.count;
+            }
+            // Value 0 (NS/NC) is excluded from valid count
+        });
+
+        const yesPercentage = nValid > 0
+            ? parseFloat(((yesCount / nValid) * 100).toFixed(1))
+            : 0;
+        const noPercentage = nValid > 0
+            ? parseFloat(((noCount / nValid) * 100).toFixed(1))
+            : 0;
+
+        return {
+            yesCount,
+            noCount,
+            yesPercentage,
+            noPercentage,
+            nValid,
+            n,
+        };
+    },
+
+    /**
+     * Determines the appropriate chart type for a question based on its metadata.
+     * 
+     * @param isYesOrNo - Whether the question is a yes/no type
+     * @param isClosedCategory - Whether the question has closed category responses
+     * @param escalaMax - Maximum scale value for numeric questions
+     * @returns Chart type: 'pie', 'bar', or 'ranged-bar'
+     */
+    getChartType(
+        isYesOrNo?: boolean | null,
+        isClosedCategory?: boolean | null,
+        escalaMax?: number | null
+    ): 'pie' | 'bar' | 'ranged-bar' {
+        // Yes/No questions use pie chart
+        if (isYesOrNo === true) {
+            return 'pie';
+        }
+
+        // Closed category questions use bar chart with custom labels
+        if (isClosedCategory === true) {
+            return 'bar';
+        }
+
+        // Numeric questions with high escala_max use ranged bar chart
+        if (escalaMax && escalaMax > SCALE_MAX_THRESHOLD) {
+            return 'ranged-bar';
+        }
+
+        // Default to standard bar chart
+        return 'bar';
+    },
+
+    /**
+     * Fetches all questions for a specific theme (category).
+     * 
+     * @param theme - The theme name (nombre_categoria)
+     * @returns Array of Question objects
+     */
+    async fetchQuestionsForTheme(theme: string): Promise<Question[]> {
+        try {
+            const { data, error } = await supabase
+                .from('preguntas')
+                .select('id, pregunta_id, texto_pregunta, is_yes_or_no, is_closed_category, escala_max')
+                .eq('nombre_categoria', theme)
+                .limit(3000);
+
+            if (error) {
+                console.error('Error fetching questions for theme:', error);
+                return [];
+            }
+
+            return data as Question[];
+        } catch (error) {
+            console.error('Analytics Service Error (fetchQuestionsForTheme):', error);
+            return [];
+        }
+    },
+}
+
+export type Question = {
+    id?: number
+    pregunta_id: string
+    texto_pregunta: string | null
+    descripcion?: string | null
+    is_yes_or_no?: boolean | null
+    is_closed_category?: boolean | null
+    escala_max?: number | null
 }

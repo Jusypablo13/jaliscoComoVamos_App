@@ -13,9 +13,10 @@ import {
     AggregatedResult,
     AnalyticsFilters,
     AnalyticsService,
+    Question,
 } from '../services/analytics'
 import { brandColors, typography } from '../styles/theme'
-import { FilterBar, Question } from './analytics/filter-bar'
+import { FilterBar } from './analytics/filter-bar'
 import { ResultsView } from './analytics/results-view'
 import { SegmentationControls } from './analytics/segmentation-controls'
 import { HomeScreenProps } from './navigation/NavigationTypes'
@@ -64,11 +65,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         // Use the database id when available (preferred), as it's reliable
         // If not available, fall back to parsing the column name (legacy support)
         const numericId = question.id !== undefined ? question.id : 0
-        
-        navigation.navigate('QuestionDetail', { 
+
+        navigation.navigate('QuestionDetail', {
             questionId: numericId,
             column: question.pregunta_id,
             questionText: question.texto_pregunta ?? undefined,
+            isYesOrNo: question.is_yes_or_no,
+            isClosedCategory: question.is_closed_category,
+            escalaMax: question.escala_max,
+            theme: filters.theme,
         });
     }
 

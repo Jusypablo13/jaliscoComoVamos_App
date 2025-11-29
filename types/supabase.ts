@@ -17,18 +17,48 @@ export interface Database {
                     pregunta_id: string
                     nombre_categoria: string
                     texto_pregunta: string | null
+                    is_yes_or_no: boolean | null
+                    is_closed_category: boolean | null
+                    escala_max: number | null
                 }
                 Insert: {
                     id?: number
                     pregunta_id: string
                     nombre_categoria: string
                     texto_pregunta?: string | null
+                    is_yes_or_no?: boolean | null
+                    is_closed_category?: boolean | null
+                    escala_max?: number | null
                 }
                 Update: {
                     id?: number
                     pregunta_id?: string
                     nombre_categoria?: string
                     texto_pregunta?: string | null
+                    is_yes_or_no?: boolean | null
+                    is_closed_category?: boolean | null
+                    escala_max?: number | null
+                }
+            }
+
+            categoria_respuesta: {
+                Row: {
+                    id: number
+                    pregunta_id: string
+                    valor_categorico: string
+                    numerico: number
+                }
+                Insert: {
+                    id?: number
+                    pregunta_id: string
+                    valor_categorico: string
+                    numerico: number
+                }
+                Update: {
+                    id?: number
+                    pregunta_id?: string
+                    valor_categorico?: string
+                    numerico?: number
                 }
             }
 
