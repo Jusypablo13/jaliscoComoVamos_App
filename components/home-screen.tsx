@@ -70,6 +70,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             questionId: numericId,
             column: question.pregunta_id,
             questionText: question.texto_pregunta ?? undefined,
+            questionDescription: question.descripcion ?? undefined,
             isYesOrNo: question.is_yes_or_no,
             isClosedCategory: question.is_closed_category,
             escalaMax: question.escala_max,
