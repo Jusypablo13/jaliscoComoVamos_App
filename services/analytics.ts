@@ -408,8 +408,12 @@ export function distributionToBarDataWithLabels(
                 ? nsNcLabel
                 : labelMap.get(item.value) || String(item.value)
             
+            // Check if this item is 'No aplica'
+            const isNoAplica = labelMap.get(item.value) === NO_APLICA_LABEL
+            
             // Recalculate percentage based on validCount (excluding NS/NC and 'No aplica')
-            const recalculatedPercentage = validCount > 0 && !item.isNsNc
+            // NS/NC and 'No aplica' items receive 0%
+            const recalculatedPercentage = validCount > 0 && !item.isNsNc && !isNoAplica
                 ? parseFloat(((item.count / validCount) * 100).toFixed(1))
                 : 0
                 
