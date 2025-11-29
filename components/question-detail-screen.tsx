@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     Animated,
+    FlatList,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -32,6 +34,12 @@ import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 import { YesNoPieChart } from './analytics/yes-no-pie-chart'
+
+// Dropdown filter option type
+type FilterOption<T> = {
+    id: T
+    nombre: string
+}
 
 type QuestionDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'QuestionDetail'>
 
@@ -72,7 +80,7 @@ const CALIDADES_VIDA = [
 ]
 
 export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreenProps) {
-    const { questionId, column, questionText, isYesOrNo, isClosedCategory, escalaMax, theme } = route.params
+    const { questionId, column, questionText, questionDescription, isYesOrNo, isClosedCategory, escalaMax, theme } = route.params
 
     const [questions, setQuestions] = useState<Question[]>([])
 
@@ -97,6 +105,7 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                 questionId: nextQuestion.id || 0,
                 column: nextQuestion.pregunta_id,
                 questionText: nextQuestion.texto_pregunta || undefined,
+                questionDescription: nextQuestion.descripcion || undefined,
                 isYesOrNo: nextQuestion.is_yes_or_no,
                 isClosedCategory: nextQuestion.is_closed_category,
                 escalaMax: nextQuestion.escala_max,
@@ -112,6 +121,7 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                 questionId: prevQuestion.id || 0,
                 column: prevQuestion.pregunta_id,
                 questionText: prevQuestion.texto_pregunta || undefined,
+                questionDescription: prevQuestion.descripcion || undefined,
                 isYesOrNo: prevQuestion.is_yes_or_no,
                 isClosedCategory: prevQuestion.is_closed_category,
                 escalaMax: prevQuestion.escala_max,
@@ -133,6 +143,9 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     const [selectedCalidadVidaGroupId, setSelectedCalidadVidaGroupId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
+
+    // Dropdown modal state
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
 
     // Determine chart type based on question metadata
     const chartType = useMemo(() =>
@@ -417,212 +430,230 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
             .reduce((sum, item) => sum + item.percentage, 0)
         : 0
 
-    return (
-        <ScrollView style={styles.container}>
-            {/* Question Header */}
-            <View style={styles.header}>
-                <View style={styles.headerTopRow}>
-                    <TouchableOpacity
-                        onPress={handlePrev}
-                        disabled={!hasPrev}
-                        style={styles.navButton}
-                    >
-                        <Ionicons name="chevron-back" size={24} color={hasPrev ? brandColors.primary : brandColors.muted} />
-                    </TouchableOpacity>
-
-                    <Text style={styles.columnLabel}>{column}</Text>
-
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        disabled={!hasNext}
-                        style={styles.navButton}
-                    >
-                        <Ionicons name="chevron-forward" size={24} color={hasNext ? brandColors.primary : brandColors.muted} />
-                    </TouchableOpacity>
-                </View>
-                {questionText && (
-                    <Text style={styles.questionText}>{questionText}</Text>
-                )}
-            </View>
-
-            {/* Municipality Filter */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Municipio</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                    <View style={styles.filterOptions}>
-                        {MUNICIPIOS.map((municipio) => (
-                            <TouchableOpacity
-                                key={municipio.id ?? 'all'}
-                                style={[
-                                    styles.filterOption,
-                                    selectedMunicipioId === municipio.id && styles.filterOptionSelected,
-                                ]}
-                                onPress={() => setSelectedMunicipioId(municipio.id)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.filterOptionText,
-                                        selectedMunicipioId === municipio.id && styles.filterOptionTextSelected,
-                                    ]}
-                                >
-                                    {municipio.nombre}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </View>
-
-            {/* Sexo Filter */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Sexo</Text>
-                <View style={styles.sexoFilterRow}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                        <View style={styles.filterOptions}>
-                            {SEXOS.map((sexo) => (
-                                <TouchableOpacity
-                                    key={sexo.id ?? 'all'}
-                                    style={[
-                                        styles.filterOption,
-                                        !showGroupedBySexo && selectedSexoId === sexo.id && styles.filterOptionSelected,
-                                        showGroupedBySexo && styles.filterOptionDisabled,
-                                    ]}
-                                    onPress={() => {
-                                        if (!showGroupedBySexo) {
-                                            setSelectedSexoId(sexo.id)
-                                        }
-                                    }}
-                                    disabled={showGroupedBySexo}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.filterOptionText,
-                                            !showGroupedBySexo && selectedSexoId === sexo.id && styles.filterOptionTextSelected,
-                                            showGroupedBySexo && styles.filterOptionTextDisabled,
-                                        ]}
-                                    >
-                                        {sexo.nombre}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </ScrollView>
-                    {/* Toggle for grouped view */}
-                    <TouchableOpacity
-                        style={[
-                            styles.groupToggle,
-                            showGroupedBySexo && styles.groupToggleActive,
-                        ]}
-                        onPress={() => {
-                            setShowGroupedBySexo(!showGroupedBySexo)
-                            if (!showGroupedBySexo) {
-                                // Reset individual sexo filter when enabling grouped view
-                                setSelectedSexoId(undefined)
-                            }
-                        }}
-                    >
-                        <Text
-                            style={[
-                                styles.groupToggleText,
-                                showGroupedBySexo && styles.groupToggleTextActive,
-                            ]}
-                        >
-                            Tabla cruzada
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Edad (Age) Filter */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Edad</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                    <View style={styles.filterOptions}>
-                        {EDADES.map((edad) => (
-                            <TouchableOpacity
-                                key={edad.id ?? 'all'}
-                                style={[
-                                    styles.filterOption,
-                                    selectedEdadRangeId === edad.id && styles.filterOptionSelected,
-                                ]}
-                                onPress={() => setSelectedEdadRangeId(edad.id)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.filterOptionText,
-                                        selectedEdadRangeId === edad.id && styles.filterOptionTextSelected,
-                                    ]}
-                                >
-                                    {edad.nombre}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </View>
-
-            {/* Escolaridad (Education) Filter */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Escolaridad</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                    <View style={styles.filterOptions}>
-                        {ESCOLARIDADES.map((escolaridad) => (
-                            <TouchableOpacity
-                                key={escolaridad.id ?? 'all'}
-                                style={[
-                                    styles.filterOption,
-                                    selectedEscolaridadGroupId === escolaridad.id && styles.filterOptionSelected,
-                                ]}
-                                onPress={() => setSelectedEscolaridadGroupId(escolaridad.id)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.filterOptionText,
-                                        selectedEscolaridadGroupId === escolaridad.id && styles.filterOptionTextSelected,
-                                    ]}
-                                >
-                                    {escolaridad.nombre}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </View>
-
-            {/* Calidad de Vida (Quality of Life) Filter */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Calidad de Vida</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                    <View style={styles.filterOptions}>
-                        {CALIDADES_VIDA.map((calidadVida) => (
-                            <TouchableOpacity
-                                key={calidadVida.id ?? 'all'}
-                                style={[
-                                    styles.filterOption,
-                                    selectedCalidadVidaGroupId === calidadVida.id && styles.filterOptionSelected,
-                                ]}
-                                onPress={() => setSelectedCalidadVidaGroupId(calidadVida.id)}
-                            >
-                                <Text
-                                    style={[
-                                        styles.filterOptionText,
-                                        selectedCalidadVidaGroupId === calidadVida.id && styles.filterOptionTextSelected,
-                                    ]}
-                                >
-                                    {calidadVida.nombre}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </View>
-
-            {/* Active Filters Label */}
-            <View style={styles.activeMunicipioContainer}>
-                <Text style={styles.activeMunicipioLabel}>
-                    {getActiveFiltersText()}
+    // Render a dropdown selector button
+    const renderDropdownButton = (
+        label: string,
+        selectedValue: string,
+        dropdownKey: string,
+        isDisabled: boolean = false
+    ) => (
+        <TouchableOpacity
+            style={[
+                styles.dropdownButton,
+                isDisabled && styles.dropdownButtonDisabled,
+            ]}
+            onPress={() => !isDisabled && setActiveDropdown(dropdownKey)}
+            disabled={isDisabled}
+        >
+            <Text style={[styles.dropdownButtonLabel, isDisabled && styles.dropdownButtonLabelDisabled]}>{label}</Text>
+            <View style={styles.dropdownButtonValueRow}>
+                <Text 
+                    style={[styles.dropdownButtonValue, isDisabled && styles.dropdownButtonValueDisabled]} 
+                    numberOfLines={1}
+                >
+                    {selectedValue}
                 </Text>
+                <Ionicons 
+                    name="chevron-down" 
+                    size={16} 
+                    color={isDisabled ? '#A0A0A0' : brandColors.primary} 
+                />
             </View>
+        </TouchableOpacity>
+    )
+
+    // Render the dropdown modal
+    const renderDropdownModal = <T extends number | undefined>(
+        dropdownKey: string,
+        title: string,
+        options: FilterOption<T>[],
+        selectedId: T,
+        onSelect: (id: T) => void
+    ) => (
+        <Modal
+            visible={activeDropdown === dropdownKey}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setActiveDropdown(null)}
+        >
+            <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setActiveDropdown(null)}
+            >
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>{title}</Text>
+                        <TouchableOpacity onPress={() => setActiveDropdown(null)}>
+                            <Ionicons name="close" size={24} color={brandColors.muted} />
+                        </TouchableOpacity>
+                    </View>
+                    <FlatList
+                        data={options}
+                        keyExtractor={(item) => String(item.id ?? 'all')}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalOption,
+                                    selectedId === item.id && styles.modalOptionSelected,
+                                ]}
+                                onPress={() => {
+                                    onSelect(item.id)
+                                    setActiveDropdown(null)
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modalOptionText,
+                                        selectedId === item.id && styles.modalOptionTextSelected,
+                                    ]}
+                                >
+                                    {item.nombre}
+                                </Text>
+                                {selectedId === item.id && (
+                                    <Ionicons name="checkmark" size={20} color={brandColors.primary} />
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        style={styles.modalList}
+                    />
+                </View>
+            </TouchableOpacity>
+        </Modal>
+    )
+
+    return (
+        <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
+            {/* Sticky Header: Question Title, Description, and Filters */}
+            <View style={styles.stickyHeader}>
+                {/* Question Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerTopRow}>
+                        <TouchableOpacity
+                            onPress={handlePrev}
+                            disabled={!hasPrev}
+                            style={styles.navButton}
+                        >
+                            <Ionicons name="chevron-back" size={24} color={hasPrev ? brandColors.primary : brandColors.muted} />
+                        </TouchableOpacity>
+
+                        <Text style={styles.columnLabel}>{column}</Text>
+
+                        <TouchableOpacity
+                            onPress={handleNext}
+                            disabled={!hasNext}
+                            style={styles.navButton}
+                        >
+                            <Ionicons name="chevron-forward" size={24} color={hasNext ? brandColors.primary : brandColors.muted} />
+                        </TouchableOpacity>
+                    </View>
+                    {questionText && (
+                        <Text style={styles.questionText}>{questionText}</Text>
+                    )}
+                    {questionDescription && (
+                        <Text style={styles.questionDescription}>{questionDescription}</Text>
+                    )}
+                </View>
+
+                {/* Compact Filter Dropdowns */}
+                <View style={styles.filtersContainer}>
+                    <View style={styles.filtersRow}>
+                        {renderDropdownButton(
+                            'Municipio',
+                            getSelectedMunicipioName(),
+                            'municipio'
+                        )}
+                        {renderDropdownButton(
+                            'Sexo',
+                            showGroupedBySexo ? 'Tabla cruzada' : getSelectedSexoName(),
+                            'sexo',
+                            showGroupedBySexo
+                        )}
+                        {renderDropdownButton(
+                            'Edad',
+                            getSelectedEdadName(),
+                            'edad'
+                        )}
+                    </View>
+                    <View style={styles.filtersRow}>
+                        {renderDropdownButton(
+                            'Escolaridad',
+                            getSelectedEscolaridadName(),
+                            'escolaridad'
+                        )}
+                        {renderDropdownButton(
+                            'Calidad de vida',
+                            getSelectedCalidadVidaName(),
+                            'calidadVida'
+                        )}
+                        {/* Toggle for grouped view */}
+                        <TouchableOpacity
+                            style={[
+                                styles.groupToggleCompact,
+                                showGroupedBySexo && styles.groupToggleCompactActive,
+                            ]}
+                            onPress={() => {
+                                setShowGroupedBySexo(!showGroupedBySexo)
+                                if (!showGroupedBySexo) {
+                                    // Reset individual sexo filter when enabling grouped view
+                                    setSelectedSexoId(undefined)
+                                }
+                            }}
+                        >
+                            <Ionicons 
+                                name="git-compare-outline" 
+                                size={16} 
+                                color={showGroupedBySexo ? brandColors.primary : brandColors.muted} 
+                            />
+                            <Text
+                                style={[
+                                    styles.groupToggleCompactText,
+                                    showGroupedBySexo && styles.groupToggleCompactTextActive,
+                                ]}
+                            >
+                                Cruzada
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+
+            {/* Dropdown Modals */}
+            {renderDropdownModal(
+                'municipio',
+                'Seleccionar Municipio',
+                MUNICIPIOS,
+                selectedMunicipioId,
+                setSelectedMunicipioId
+            )}
+            {renderDropdownModal(
+                'sexo',
+                'Seleccionar Sexo',
+                SEXOS,
+                selectedSexoId,
+                setSelectedSexoId
+            )}
+            {renderDropdownModal(
+                'edad',
+                'Seleccionar Edad',
+                EDADES,
+                selectedEdadRangeId,
+                setSelectedEdadRangeId
+            )}
+            {renderDropdownModal(
+                'escolaridad',
+                'Seleccionar Escolaridad',
+                ESCOLARIDADES,
+                selectedEscolaridadGroupId,
+                setSelectedEscolaridadGroupId
+            )}
+            {renderDropdownModal(
+                'calidadVida',
+                'Seleccionar Calidad de Vida',
+                CALIDADES_VIDA,
+                selectedCalidadVidaGroupId,
+                setSelectedCalidadVidaGroupId
+            )}
 
             {/* Simple Distribution View */}
             {distribution && !showGroupedBySexo && (
@@ -977,6 +1008,145 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: brandColors.primary,
         lineHeight: 24,
+    },
+    questionDescription: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.muted,
+        lineHeight: 20,
+        marginTop: 8,
+    },
+    stickyHeader: {
+        backgroundColor: brandColors.surface,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    filtersContainer: {
+        padding: 12,
+        paddingTop: 8,
+        backgroundColor: brandColors.surface,
+        borderTopWidth: 1,
+        borderTopColor: '#E0E4EA',
+    },
+    filtersRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 8,
+    },
+    dropdownButton: {
+        flex: 1,
+        backgroundColor: '#F5F7FA',
+        borderRadius: 8,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: '#E0E4EA',
+    },
+    dropdownButtonDisabled: {
+        backgroundColor: '#E8E8E8',
+        borderColor: '#E8E8E8',
+    },
+    dropdownButtonLabel: {
+        fontFamily: typography.regular,
+        fontSize: 10,
+        color: brandColors.muted,
+        marginBottom: 2,
+    },
+    dropdownButtonLabelDisabled: {
+        color: '#A0A0A0',
+    },
+    dropdownButtonValueRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dropdownButtonValue: {
+        fontFamily: typography.emphasis,
+        fontSize: 13,
+        color: brandColors.text,
+        flex: 1,
+    },
+    dropdownButtonValueDisabled: {
+        color: '#A0A0A0',
+    },
+    groupToggleCompact: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        backgroundColor: '#F5F7FA',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderColor: '#E0E4EA',
+        minWidth: 80,
+    },
+    groupToggleCompactActive: {
+        backgroundColor: brandColors.highlight,
+        borderColor: brandColors.highlight,
+    },
+    groupToggleCompactText: {
+        fontFamily: typography.regular,
+        fontSize: 11,
+        color: brandColors.muted,
+    },
+    groupToggleCompactTextActive: {
+        fontFamily: typography.emphasis,
+        color: brandColors.primary,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        backgroundColor: brandColors.surface,
+        borderRadius: 16,
+        width: '100%',
+        maxHeight: '70%',
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E4EA',
+    },
+    modalTitle: {
+        fontFamily: typography.heading,
+        fontSize: 18,
+        color: brandColors.primary,
+    },
+    modalList: {
+        maxHeight: 300,
+    },
+    modalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    modalOptionSelected: {
+        backgroundColor: '#EEF2FF',
+    },
+    modalOptionText: {
+        fontFamily: typography.regular,
+        fontSize: 16,
+        color: brandColors.text,
+        flex: 1,
+    },
+    modalOptionTextSelected: {
+        fontFamily: typography.emphasis,
+        color: brandColors.primary,
     },
     sampleInfo: {
         flexDirection: 'row',

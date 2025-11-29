@@ -871,7 +871,7 @@ export const AnalyticsService = {
         try {
             const { data, error } = await supabase
                 .from('preguntas')
-                .select('id, pregunta_id, texto_pregunta, is_yes_or_no, is_closed_category, escala_max')
+                .select('id, pregunta_id, texto_pregunta, descripcion, is_yes_or_no, is_closed_category, escala_max')
                 .eq('nombre_categoria', theme)
                 .limit(3000);
 
