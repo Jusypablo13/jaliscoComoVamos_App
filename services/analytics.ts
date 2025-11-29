@@ -40,15 +40,56 @@ export type AggregatedResult = {
 /**
  * NS/NC (No sabe/No contesta) special values that should be excluded from percentage calculations.
  * These are standard codes used in survey methodology:
- * - 99: Common code for "No sabe" (Don't know)
- * - 98: Common code for "No contesta" (No answer/Refused)
  * - -1: Alternative code for missing/invalid response
- * - 0: Alternative code for no response in some survey designs
+ * - 0: Alternative code for no response in categorical survey designs (Yes/No questions)
+ * 
+ * Note: For non-categorical numerical questions (escala_max >= 8), zero is a valid response.
+ * Use the helper function isNsNcValue() to determine if a value should be treated as NS/NC
+ * based on the question type.
  * 
  * Note: These values are specific to the survey design of Jalisco Cómo Vamos.
  * Modify this array if the survey methodology changes.
  */
-const NS_NC_VALUES = [-1, 0]
+const NS_NC_VALUES_DEFAULT = [-1, 0]
+
+/**
+ * NS/NC values for non-categorical numerical questions with high escala_max.
+ * In these questions, zero is a valid response, not NS/NC.
+ */
+const NS_NC_VALUES_NUMERICAL = [-1]
+
+/**
+ * Label used in the database to indicate "No aplica" (Not applicable) responses.
+ * These responses are valid but should be excluded from histogram bins and percentage calculations.
+ */
+const NO_APLICA_LABEL = 'No aplica'
+
+/**
+ * Threshold for escala_max to determine if zero should be treated as a valid response.
+ * Questions with escala_max >= this threshold treat zero as valid (numerical questions).
+ */
+const NUMERICAL_QUESTION_THRESHOLD = 8
+
+/**
+ * Helper function to determine if a value should be treated as NS/NC.
+ * 
+ * @param value - The numeric value to check
+ * @param isClosedCategory - Whether the question is a closed category type
+ * @param escalaMax - Maximum scale value for the question (if applicable)
+ * @returns true if the value should be treated as NS/NC
+ */
+export function isNsNcValue(
+    value: number,
+    isClosedCategory?: boolean | null,
+    escalaMax?: number | null
+): boolean {
+    // For non-categorical numerical questions with high escala_max, zero is valid
+    if (isClosedCategory !== true && escalaMax !== null && escalaMax !== undefined && escalaMax >= NUMERICAL_QUESTION_THRESHOLD) {
+        return NS_NC_VALUES_NUMERICAL.includes(value)
+    }
+    // Default behavior: use standard NS/NC values
+    return NS_NC_VALUES_DEFAULT.includes(value)
+}
 
 /**
  * Sexo (gender) values used in the Q_74 column.
@@ -126,6 +167,9 @@ export type QuestionDistributionFilters = {
     edadRangeId?: number           // Age range ID (1-4) mapped to Q_75 ranges
     escolaridadGroupId?: number    // Education group ID (1-3) mapped to Q_76 values
     calidadVidaGroupId?: number    // Quality of life group ID (1-3) mapped to Q_2 values
+    // Question type parameters for NS/NC determination
+    isClosedCategory?: boolean | null  // Whether the question is a closed category type
+    escalaMax?: number | null          // Maximum scale value for the question
 }
 
 /**
@@ -187,6 +231,7 @@ export type QuestionDistributionItem = {
     count: number
     percentage: number
     isNsNc: boolean // Flag to indicate if this is NS/NC
+    isNoAplica?: boolean // Flag to indicate if this is 'No aplica' (valid but excluded from histograms)
 }
 
 export type QuestionDistribution = {
@@ -314,6 +359,9 @@ export function distributionToBarData(
  * Transforms QuestionDistribution data to BarDatum[] format using category labels.
  * Used for closed category questions where numeric values map to text labels.
  * 
+ * Note: Percentages are recalculated to exclude both NS/NC and 'No aplica' values
+ * from the denominator, ensuring substantive options (like 'Sí' and 'No') sum to 100%.
+ * 
  * @param distribution - The QuestionDistribution data from Supabase
  * @param categoryLabels - Map of numeric values to text labels
  * @param options - Optional configuration for the transformation
@@ -325,23 +373,49 @@ export function distributionToBarDataWithLabels(
     options?: {
         includeNsNc?: boolean
         nsNcLabel?: string
+        includeNoAplica?: boolean
     }
 ): BarDatum[] {
-    const { includeNsNc = false, nsNcLabel = 'NS/NC' } = options || {}
+    const { includeNsNc = false, nsNcLabel = 'NS/NC', includeNoAplica = false } = options || {}
 
     // Create a map for quick lookup
     const labelMap = new Map<number, string>()
     categoryLabels.forEach(cat => labelMap.set(cat.numerico, cat.valor_categorico))
 
+    // Calculate valid count excluding both NS/NC and 'No aplica' values
+    // This ensures substantive responses (Sí, No, etc.) sum to 100%
+    let validCount = 0
+    distribution.distribution.forEach((item) => {
+        const label = labelMap.get(item.value)
+        // Exclude NS/NC values
+        if (item.isNsNc) return
+        // Exclude 'No aplica' values
+        if (label === NO_APLICA_LABEL) return
+        validCount += item.count
+    })
+
     return distribution.distribution
-        .filter((item) => includeNsNc || !item.isNsNc)
+        .filter((item) => {
+            // Exclude NS/NC unless explicitly included
+            if (item.isNsNc && !includeNsNc) return false
+            // Exclude 'No aplica' unless explicitly included
+            const label = labelMap.get(item.value)
+            if (label === NO_APLICA_LABEL && !includeNoAplica) return false
+            return true
+        })
         .map((item) => {
             const categoryLabel = item.isNsNc
                 ? nsNcLabel
                 : labelMap.get(item.value) || String(item.value)
+            
+            // Recalculate percentage based on validCount (excluding NS/NC and 'No aplica')
+            const recalculatedPercentage = validCount > 0 && !item.isNsNc
+                ? parseFloat(((item.count / validCount) * 100).toFixed(1))
+                : 0
+                
             return {
                 label: categoryLabel,
-                value: item.percentage,
+                value: recalculatedPercentage,
                 numericValue: item.value,
                 fullLabel: categoryLabel,
             }
@@ -573,10 +647,11 @@ export const AnalyticsService = {
             })
 
             // Calculate valid responses (excluding NS/NC) for percentage calculation
+            // Use question type parameters to determine what counts as NS/NC
             let validResponses = 0
             Object.entries(valueCounts).forEach(([value, count]) => {
                 const numValue = parseInt(value, 10)
-                if (!NS_NC_VALUES.includes(numValue)) {
+                if (!isNsNcValue(numValue, filters?.isClosedCategory, filters?.escalaMax)) {
                     validResponses += count
                 }
             })
@@ -585,16 +660,16 @@ export const AnalyticsService = {
             const distribution: QuestionDistributionItem[] = Object.entries(valueCounts)
                 .map(([value, count]) => {
                     const numValue = parseInt(value, 10)
-                    const isNsNc = NS_NC_VALUES.includes(numValue)
+                    const nsNcFlag = isNsNcValue(numValue, filters?.isClosedCategory, filters?.escalaMax)
                     // Calculate percentage based on valid responses (excluding NS/NC)
-                    const percentage = validResponses > 0 && !isNsNc
+                    const percentage = validResponses > 0 && !nsNcFlag
                         ? parseFloat(((count / validResponses) * 100).toFixed(1))
                         : 0
                     return {
                         value: numValue,
                         count,
                         percentage,
-                        isNsNc,
+                        isNsNc: nsNcFlag,
                     }
                 })
                 .sort((a, b) => a.value - b.value) // Sort by value ascending
@@ -704,10 +779,11 @@ export const AnalyticsService = {
                 });
 
                 // Calculate valid responses (excluding NS/NC) for percentage calculation
+                // Use question type parameters to determine what counts as NS/NC
                 let validResponses = 0;
                 Object.entries(valueCounts).forEach(([value, count]) => {
                     const numValue = parseInt(value, 10);
-                    if (!NS_NC_VALUES.includes(numValue)) {
+                    if (!isNsNcValue(numValue, filters?.isClosedCategory, filters?.escalaMax)) {
                         validResponses += count;
                     }
                 });
@@ -716,15 +792,15 @@ export const AnalyticsService = {
                 const distribution: QuestionDistributionItem[] = Object.entries(valueCounts)
                     .map(([value, count]) => {
                         const numValue = parseInt(value, 10);
-                        const isNsNc = NS_NC_VALUES.includes(numValue);
-                        const percentage = validResponses > 0 && !isNsNc
+                        const nsNcFlag = isNsNcValue(numValue, filters?.isClosedCategory, filters?.escalaMax);
+                        const percentage = validResponses > 0 && !nsNcFlag
                             ? parseFloat(((count / validResponses) * 100).toFixed(1))
                             : 0;
                         return {
                             value: numValue,
                             count,
                             percentage,
-                            isNsNc,
+                            isNsNc: nsNcFlag,
                         };
                     })
                     .sort((a, b) => a.value - b.value);

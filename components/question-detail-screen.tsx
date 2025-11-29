@@ -184,7 +184,9 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
         edadRangeId: selectedEdadRangeId,
         escolaridadGroupId: selectedEscolaridadGroupId,
         calidadVidaGroupId: selectedCalidadVidaGroupId,
-    }), [selectedMunicipioId, selectedSexoId, selectedEdadRangeId, selectedEscolaridadGroupId, selectedCalidadVidaGroupId])
+        isClosedCategory: isClosedCategory,
+        escalaMax: escalaMax,
+    }), [selectedMunicipioId, selectedSexoId, selectedEdadRangeId, selectedEscolaridadGroupId, selectedCalidadVidaGroupId, isClosedCategory, escalaMax])
 
     useEffect(() => {
         fetchDistribution()
