@@ -6,13 +6,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 // A screen that takes no parameters should have 'undefined'.
 export type RootStackParamList = {
     Home: undefined; // The 'Home' screen takes no parameters
-    QuestionDetail: { 
+    QuestionDetail: {
         questionId: number; // Numeric ID of the question
         column: string; // Column name in the encuesta table (e.g., "Q_31")
         questionText?: string; // Optional question text for display
         isYesOrNo?: boolean | null; // Whether this is a yes/no question
         isClosedCategory?: boolean | null; // Whether this is a closed category question
         escalaMax?: number | null; // Maximum scale value for numeric questions
+        theme?: string; // The theme/category of the question, used for navigation
     };
 };
 

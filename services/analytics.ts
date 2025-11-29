@@ -268,13 +268,13 @@ export function generateRangeGroups(escalaMax: number, minValue: number = 0): Ra
     let currentMin = minValue
     for (let i = 0; i < MAX_RANGE_GROUPS && currentMin <= escalaMax; i++) {
         const currentMax = Math.min(currentMin + groupSize - 1, escalaMax)
-        
+
         groups.push({
             min: currentMin,
             max: currentMax,
             label: currentMin === currentMax ? `${currentMin}` : `${currentMin}-${currentMax}`,
         })
-        
+
         currentMin = currentMax + 1
     }
 
@@ -336,8 +336,8 @@ export function distributionToBarDataWithLabels(
     return distribution.distribution
         .filter((item) => includeNsNc || !item.isNsNc)
         .map((item) => {
-            const categoryLabel = item.isNsNc 
-                ? nsNcLabel 
+            const categoryLabel = item.isNsNc
+                ? nsNcLabel
                 : labelMap.get(item.value) || String(item.value)
             return {
                 label: categoryLabel,
@@ -381,7 +381,7 @@ export function distributionToBarDataWithRanges(
     // Convert to percentages
     return rangeGroups.map(group => ({
         label: group.label,
-        value: totalValidCount > 0 
+        value: totalValidCount > 0
             ? parseFloat(((rangeCounts[group.label] / totalValidCount) * 100).toFixed(1))
             : 0,
     }))
@@ -514,7 +514,7 @@ export const AnalyticsService = {
             // Determine which columns we need to select for filtering
             const additionalColumns = getAdditionalColumnsForFilters(filters)
             const columnsToSelect = [column, ...additionalColumns]
-            
+
             // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
@@ -631,7 +631,7 @@ export const AnalyticsService = {
             // Determine which columns we need to select for filtering
             const additionalColumns = getAdditionalColumnsForFilters(filters)
             const columnsToSelect = [column, 'Q_74', ...additionalColumns]
-            
+
             // Fetch the columns we need from encuestalol
             let query = supabase
                 .from('encuestalol')
@@ -812,10 +812,10 @@ export const AnalyticsService = {
             // Value 0 (NS/NC) is excluded from valid count
         });
 
-        const yesPercentage = nValid > 0 
+        const yesPercentage = nValid > 0
             ? parseFloat(((yesCount / nValid) * 100).toFixed(1))
             : 0;
-        const noPercentage = nValid > 0 
+        const noPercentage = nValid > 0
             ? parseFloat(((noCount / nValid) * 100).toFixed(1))
             : 0;
 
@@ -860,4 +860,40 @@ export const AnalyticsService = {
         // Default to standard bar chart
         return 'bar';
     },
+
+    /**
+     * Fetches all questions for a specific theme (category).
+     * 
+     * @param theme - The theme name (nombre_categoria)
+     * @returns Array of Question objects
+     */
+    async fetchQuestionsForTheme(theme: string): Promise<Question[]> {
+        try {
+            const { data, error } = await supabase
+                .from('preguntas')
+                .select('id, pregunta_id, texto_pregunta, is_yes_or_no, is_closed_category, escala_max')
+                .eq('nombre_categoria', theme)
+                .limit(3000);
+
+            if (error) {
+                console.error('Error fetching questions for theme:', error);
+                return [];
+            }
+
+            return data as Question[];
+        } catch (error) {
+            console.error('Analytics Service Error (fetchQuestionsForTheme):', error);
+            return [];
+        }
+    },
+}
+
+export type Question = {
+    id?: number
+    pregunta_id: string
+    texto_pregunta: string | null
+    descripcion?: string | null
+    is_yes_or_no?: boolean | null
+    is_closed_category?: boolean | null
+    escala_max?: number | null
 }
