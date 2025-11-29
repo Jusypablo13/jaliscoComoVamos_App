@@ -8,10 +8,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { RootStackParamList } from './navigation/NavigationTypes'
 import {
     AnalyticsService,
+    Question,
     QuestionDistribution,
     GroupedQuestionDistribution,
     QuestionDistributionItem,
@@ -69,8 +71,54 @@ const CALIDADES_VIDA = [
     ...Object.values(QUALITY_OF_LIFE_GROUPS).map(group => ({ id: group.id, nombre: group.label })),
 ]
 
-export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
-    const { questionId, column, questionText, isYesOrNo, isClosedCategory, escalaMax } = route.params
+export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreenProps) {
+    const { questionId, column, questionText, isYesOrNo, isClosedCategory, escalaMax, theme } = route.params
+
+    const [questions, setQuestions] = useState<Question[]>([])
+
+    // Fetch questions for navigation
+    useEffect(() => {
+        if (theme) {
+            AnalyticsService.fetchQuestionsForTheme(theme).then(setQuestions)
+        }
+    }, [theme])
+
+    const currentQuestionIndex = useMemo(() => {
+        return questions.findIndex(q => q.pregunta_id === column)
+    }, [questions, column])
+
+    const hasNext = currentQuestionIndex !== -1 && currentQuestionIndex < questions.length - 1
+    const hasPrev = currentQuestionIndex !== -1 && currentQuestionIndex > 0
+
+    const handleNext = () => {
+        if (hasNext) {
+            const nextQuestion = questions[currentQuestionIndex + 1]
+            navigation.setParams({
+                questionId: nextQuestion.id || 0,
+                column: nextQuestion.pregunta_id,
+                questionText: nextQuestion.texto_pregunta || undefined,
+                isYesOrNo: nextQuestion.is_yes_or_no,
+                isClosedCategory: nextQuestion.is_closed_category,
+                escalaMax: nextQuestion.escala_max,
+                theme
+            })
+        }
+    }
+
+    const handlePrev = () => {
+        if (hasPrev) {
+            const prevQuestion = questions[currentQuestionIndex - 1]
+            navigation.setParams({
+                questionId: prevQuestion.id || 0,
+                column: prevQuestion.pregunta_id,
+                questionText: prevQuestion.texto_pregunta || undefined,
+                isYesOrNo: prevQuestion.is_yes_or_no,
+                isClosedCategory: prevQuestion.is_closed_category,
+                escalaMax: prevQuestion.escala_max,
+                theme
+            })
+        }
+    }
 
     const [distribution, setDistribution] = useState<QuestionDistribution | null>(null)
     const [groupedDistribution, setGroupedDistribution] = useState<GroupedQuestionDistribution | null>(null)
@@ -87,7 +135,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const [showTable, setShowTable] = useState(false)
 
     // Determine chart type based on question metadata
-    const chartType = useMemo(() => 
+    const chartType = useMemo(() =>
         AnalyticsService.getChartType(isYesOrNo, isClosedCategory, escalaMax),
         [isYesOrNo, isClosedCategory, escalaMax]
     )
@@ -132,16 +180,16 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Compute grouped table rows data for the cross-table view
     const groupedTableRows = useMemo(() => {
         if (!groupedDistribution) return []
-        
+
         // Collect all unique response values across all groups
         const allValues = new Set<number>()
         groupedDistribution.groups.forEach(group => {
             group.distribution.forEach(item => allValues.add(item.value))
         })
-        
+
         // Sort values ascending
         const sortedValues = Array.from(allValues).sort((a, b) => a - b)
-        
+
         // Build row data with isNsNc determined by checking all groups
         return sortedValues.map(value => {
             // Check if this value is NS/NC by looking at all groups
@@ -149,14 +197,14 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 const item = group.distribution.find(d => d.value === value)
                 return item?.isNsNc ?? false
             })
-            
+
             // Get item data for each group
-            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] = 
+            const groupItems: { sexo: string; item: QuestionDistributionItem | undefined }[] =
                 groupedDistribution.groups.map(group => ({
                     sexo: group.key.sexo,
                     item: group.distribution.find(d => d.value === value),
                 }))
-            
+
             return { value, isNsNc, groupItems }
         })
     }, [groupedDistribution]);
@@ -165,18 +213,18 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     // Uses appropriate transformation based on chart type
     const barChartData = useMemo(() => {
         if (!distribution) return []
-        
+
         // For closed category questions, use category labels if available
         if (chartType === 'bar' && isClosedCategory === true && categoryLabels && categoryLabels.length > 0) {
             return distributionToBarDataWithLabels(distribution, categoryLabels, { includeNsNc: false })
         }
-        
+
         // For numeric questions with high escala_max, use range grouping
         if (chartType === 'ranged-bar' && escalaMax) {
             const rangeGroups = generateRangeGroups(escalaMax)
             return distributionToBarDataWithRanges(distribution, rangeGroups)
         }
-        
+
         // Default: standard bar data transformation
         return distributionToBarData(distribution, { includeNsNc: false })
     }, [distribution, chartType, isClosedCategory, categoryLabels, escalaMax])
@@ -217,7 +265,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     const fetchDistribution = async () => {
         // Determine if this is initial load or a filter change
         const hasExistingData = distribution !== null || groupedDistribution !== null
-        
+
         if (isInitialLoad.current || !hasExistingData) {
             // Initial load - show full loading screen
             setIsLoading(true)
@@ -231,15 +279,15 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                 useNativeDriver: true,
             }).start()
         }
-        
+
         setError(null)
-        
+
         try {
             if (showGroupedBySexo) {
                 // Fetch grouped distribution by sexo
                 const data = await AnalyticsService.fetchQuestionDistributionGroupedBySexo(
-                    questionId, 
-                    column, 
+                    questionId,
+                    column,
                     filters
                 )
                 if (data) {
@@ -255,8 +303,8 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
             } else {
                 // Fetch simple distribution with optional filters
                 const data = await AnalyticsService.fetchQuestionDistribution(
-                    questionId, 
-                    column, 
+                    questionId,
+                    column,
                     filters
                 )
                 if (data) {
@@ -363,7 +411,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
     }
 
     // Calculate the sum of percentages for simple distribution (should be ~100% for valid responses)
-    const percentageSum = distribution 
+    const percentageSum = distribution
         ? distribution.distribution
             .filter(item => !item.isNsNc)
             .reduce((sum, item) => sum + item.percentage, 0)
@@ -373,7 +421,25 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
         <ScrollView style={styles.container}>
             {/* Question Header */}
             <View style={styles.header}>
-                <Text style={styles.columnLabel}>{column}</Text>
+                <View style={styles.headerTopRow}>
+                    <TouchableOpacity
+                        onPress={handlePrev}
+                        disabled={!hasPrev}
+                        style={styles.navButton}
+                    >
+                        <Ionicons name="chevron-back" size={24} color={hasPrev ? brandColors.primary : brandColors.muted} />
+                    </TouchableOpacity>
+
+                    <Text style={styles.columnLabel}>{column}</Text>
+
+                    <TouchableOpacity
+                        onPress={handleNext}
+                        disabled={!hasNext}
+                        style={styles.navButton}
+                    >
+                        <Ionicons name="chevron-forward" size={24} color={hasNext ? brandColors.primary : brandColors.muted} />
+                    </TouchableOpacity>
+                </View>
                 {questionText && (
                     <Text style={styles.questionText}>{questionText}</Text>
                 )}
@@ -588,7 +654,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                             </Animated.View>
                             {/* Loading Overlay */}
                             {isRefreshing && (
-                                <Animated.View 
+                                <Animated.View
                                     style={[
                                         styles.chartOverlay,
                                         { opacity: overlayOpacity }
@@ -610,7 +676,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                             </Animated.View>
                             {/* Loading Overlay */}
                             {isRefreshing && (
-                                <Animated.View 
+                                <Animated.View
                                     style={[
                                         styles.chartOverlay,
                                         { opacity: overlayOpacity }
@@ -637,7 +703,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     {showTable && (
                         <View style={styles.tableContainer}>
                             <Text style={styles.sectionTitle}>Distribución de Respuestas</Text>
-                            
+
                             {/* Table Header */}
                             <View style={styles.tableHeader}>
                                 <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
@@ -652,8 +718,8 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                             {distribution.distribution.map((item, index) => {
                                 const categoryLabel = getCategoryLabel(item.value)
                                 return (
-                                    <View 
-                                        key={item.value} 
+                                    <View
+                                        key={item.value}
                                         style={[
                                             styles.tableRow,
                                             index % 2 === 0 && styles.tableRowEven,
@@ -723,7 +789,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                     {/* Grouped Distribution Table */}
                     <View style={styles.tableContainer}>
                         <Text style={styles.sectionTitle}>Distribución por Sexo</Text>
-                        
+
                         {/* Table Header with dynamic columns for each sexo */}
                         <View style={styles.tableHeader}>
                             <Text style={[styles.tableHeaderCell, hasCategoryLabels ? styles.valueColumnWithLabel : styles.valueColumn]}>Valor</Text>
@@ -731,8 +797,8 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                                 <Text style={[styles.tableHeaderCell, styles.labelColumn]}>Etiqueta</Text>
                             )}
                             {groupedDistribution.groups.map((group) => (
-                                <Text 
-                                    key={group.key.sexo} 
+                                <Text
+                                    key={group.key.sexo}
                                     style={[styles.tableHeaderCell, styles.groupColumn]}
                                 >
                                     {group.key.sexo}
@@ -744,8 +810,8 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                         {groupedTableRows.map((row, index) => {
                             const categoryLabel = getCategoryLabel(row.value)
                             return (
-                                <View 
-                                    key={row.value} 
+                                <View
+                                    key={row.value}
                                     style={[
                                         styles.tableRow,
                                         index % 2 === 0 && styles.tableRowEven,
@@ -762,13 +828,13 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                                         </Text>
                                     )}
                                     {row.groupItems.map((groupItem) => (
-                                        <Text 
+                                        <Text
                                             key={`${groupItem.sexo}-${row.value}`}
                                             style={[styles.tableCell, styles.groupColumn]}
                                         >
-                                            {groupItem.item 
-                                                ? (row.isNsNc 
-                                                    ? `${groupItem.item.count}` 
+                                            {groupItem.item
+                                                ? (row.isNsNc
+                                                    ? `${groupItem.item.count}`
                                                     : `${groupItem.item.count} (${groupItem.item.percentage}%)`)
                                                 : '0'}
                                         </Text>
@@ -784,7 +850,7 @@ export function QuestionDetailScreen({ route }: QuestionDetailScreenProps) {
                                 <Text style={[styles.tableFooterCell, styles.labelColumn]}></Text>
                             )}
                             {groupedDistribution.groups.map((group) => (
-                                <Text 
+                                <Text
                                     key={`total-${group.key.sexo}`}
                                     style={[styles.tableFooterCell, styles.groupColumn]}
                                 >
@@ -1131,5 +1197,14 @@ const styles = StyleSheet.create({
     groupColumn: {
         flex: 1,
         textAlign: 'center',
+    },
+    headerTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    navButton: {
+        padding: 4,
     },
 })

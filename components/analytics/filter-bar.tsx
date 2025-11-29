@@ -8,17 +8,8 @@ import {
     View,
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
+import { AnalyticsService, Question } from '../../services/analytics'
 import { brandColors, typography } from '../../styles/theme'
-
-export type Question = {
-    id?: number
-    pregunta_id: string
-    texto_pregunta: string | null
-    descripcion?: string | null // Util para preguntas con descripciones largas
-    is_yes_or_no?: boolean | null
-    is_closed_category?: boolean | null
-    escala_max?: number | null
-}
 
 type FilterBarProps = {
     onSearch: (query: string) => void
@@ -66,12 +57,7 @@ export function FilterBar({
     }
 
     const fetchQuestionsForTheme = async (theme: string) => {
-        const { data } = await supabase
-            .from('preguntas')
-            .select('id, pregunta_id, texto_pregunta, is_yes_or_no, is_closed_category, escala_max')
-            .eq('nombre_categoria', theme)
-            .limit(3000);
-
+        const data = await AnalyticsService.fetchQuestionsForTheme(theme)
         if (data) {
             setQuestions(data)
         }
@@ -139,28 +125,28 @@ export function FilterBar({
             {selectedTheme && questions.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.label}>Preguntas</Text>
-                        <View style={styles.questionsList}>
-                            {questions.map((q) => (
-                                <TouchableOpacity
+                    <View style={styles.questionsList}>
+                        {questions.map((q) => (
+                            <TouchableOpacity
                                 key={q.pregunta_id}
                                 style={[
                                     styles.questionItem,
                                     selectedQuestion === q.pregunta_id && styles.questionItemSelected,
                                 ]}
                                 onPress={() => onQuestionSelect(q)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.questionText,
+                                        selectedQuestion === q.pregunta_id &&
+                                        styles.questionTextSelected,
+                                    ]}
                                 >
-                                    <Text
-                                        style={[
-                                            styles.questionText,
-                                            selectedQuestion === q.pregunta_id &&
-                                            styles.questionTextSelected,
-                                        ]}
-                                        >
-                                        {q.texto_pregunta?.trim() || q.pregunta_id}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                                    {q.texto_pregunta?.trim() || q.pregunta_id}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
             )}
         </View>
