@@ -33,18 +33,43 @@ export function LoginScreen({ onAuthSuccess }: Props) {
     resetFeedback()
     setIsSignUpMode((prev) => !prev)
   }
+  // Email regex: Standard pattern
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  // Password regex: At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+  const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+
   const handleSubmit = async () => {
     resetFeedback()
+
+    // Basic empty check
     if (!email.trim() || !password.trim()) {
       setFeedback('Por favor ingresa correo y contraseña.')
       setHasError(true)
       return
     }
-    if (isSignUpMode && !fullName.trim()) {
-      setFeedback('Ingresa tu nombre para crear la cuenta.')
+
+    // Email format validation
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setFeedback('Por favor ingresa un correo electrónico válido.')
       setHasError(true)
       return
     }
+
+    if (isSignUpMode) {
+      if (!fullName.trim()) {
+        setFeedback('Ingresa tu nombre para crear la cuenta.')
+        setHasError(true)
+        return
+      }
+
+      // Strong password validation (only for sign up)
+      if (!PASSWORD_REGEX.test(password)) {
+        setFeedback('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&).')
+        setHasError(true)
+        return
+      }
+    }
+
     setIsSubmitting(true)
     try {
       if (isSignUpMode) {
