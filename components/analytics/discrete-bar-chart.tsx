@@ -238,6 +238,7 @@ export function DiscreteBarChart({
                     fromZero
                     showValuesOnTopOfBars={showValuesOnTopOfBars}
                     withCustomBarColorFromData={shouldUseColorLegend}
+                    flatColor={true}
                     style={styles.chart}
                 />
             </View>
