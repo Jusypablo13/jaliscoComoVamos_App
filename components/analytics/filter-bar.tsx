@@ -3,10 +3,13 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
+    Modal,
+    TouchableWithoutFeedback,
+    TextInput,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { AnalyticsService, Question } from '../../services/analytics'
 import { brandColors, typography } from '../../styles/theme'
@@ -29,6 +32,7 @@ export function FilterBar({
     const [categories, setCategories] = useState<string[]>([])
     const [questions, setQuestions] = useState<Question[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const [modalVisible, setModalVisible] = useState(false)
 
     useEffect(() => {
         fetchCategories()
@@ -79,47 +83,80 @@ export function FilterBar({
                 />
             </View>
 
-            {/* Theme Selector */}
+            {/* Theme Selector - Bottom Sheet Trigger */}
             <View style={styles.section}>
                 <Text style={styles.label}>Temática</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <TouchableOpacity
-                        style={[
-                            styles.chip,
-                            selectedTheme === null && styles.chipSelected,
-                        ]}
-                        onPress={() => onThemeSelect(null)}
-                    >
-                        <Text
-                            style={[
-                                styles.chipText,
-                                selectedTheme === null && styles.chipTextSelected,
-                            ]}
-                        >
-                            Todas
-                        </Text>
-                    </TouchableOpacity>
-                    {categories.map((cat) => (
-                        <TouchableOpacity
-                            key={cat}
-                            style={[
-                                styles.chip,
-                                selectedTheme === cat && styles.chipSelected,
-                            ]}
-                            onPress={() => onThemeSelect(cat)}
-                        >
-                            <Text
-                                style={[
-                                    styles.chipText,
-                                    selectedTheme === cat && styles.chipTextSelected,
-                                ]}
-                            >
-                                {cat}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                <TouchableOpacity
+                    style={styles.dropdownButton}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <Text style={[
+                        styles.dropdownButtonText,
+                        !selectedTheme && styles.placeholderText
+                    ]}>
+                        {selectedTheme || 'Seleccionar temática'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={brandColors.muted} />
+                </TouchableOpacity>
             </View>
+
+            {/* Theme Selection Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContent}>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>Seleccionar Temática</Text>
+                                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                        <Ionicons name="close" size={24} color={brandColors.text} />
+                                    </TouchableOpacity>
+                                </View>
+                                <ScrollView style={styles.modalList}>
+                                    <TouchableOpacity
+                                        style={styles.modalOption}
+                                        onPress={() => {
+                                            onThemeSelect(null)
+                                            setModalVisible(false)
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.modalOptionText,
+                                            selectedTheme === null && styles.modalOptionTextSelected
+                                        ]}>Todas</Text>
+                                        {selectedTheme === null && (
+                                            <Ionicons name="checkmark" size={20} color={brandColors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                    {categories.map((cat) => (
+                                        <TouchableOpacity
+                                            key={cat}
+                                            style={styles.modalOption}
+                                            onPress={() => {
+                                                onThemeSelect(cat)
+                                                setModalVisible(false)
+                                            }}
+                                        >
+                                            <Text style={[
+                                                styles.modalOptionText,
+                                                selectedTheme === cat && styles.modalOptionTextSelected
+                                            ]}>{cat}</Text>
+                                            {selectedTheme === cat && (
+                                                <Ionicons name="checkmark" size={20} color={brandColors.primary} />
+                                            )}
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
 
             {/* Question Selector (Only if theme selected) */}
             {selectedTheme && questions.length > 0 && (
@@ -175,33 +212,76 @@ const styles = StyleSheet.create({
     section: {
         marginBottom: 12,
     },
+
     label: {
         fontFamily: typography.emphasis,
         fontSize: 12,
         color: brandColors.muted,
         marginBottom: 8,
     },
-    chip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+    dropdownButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         backgroundColor: '#F5F7FA',
-        marginRight: 8,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         borderWidth: 1,
-        borderColor: 'transparent',
+        borderColor: '#E0E4EA',
     },
-    chipSelected: {
-        backgroundColor: brandColors.primary,
-        borderColor: brandColors.primary,
-    },
-    chipText: {
+    dropdownButtonText: {
         fontFamily: typography.regular,
-        fontSize: 13,
+        fontSize: 14,
         color: brandColors.text,
     },
-    chipTextSelected: {
-        color: brandColors.surface,
+    placeholderText: {
+        color: brandColors.muted,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: brandColors.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '80%',
+        paddingBottom: 24,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    modalTitle: {
+        fontFamily: typography.heading,
+        fontSize: 18,
+        color: brandColors.primary,
+    },
+    modalList: {
+        paddingHorizontal: 20,
+    },
+    modalOption: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F7FA',
+    },
+    modalOptionText: {
+        fontFamily: typography.regular,
+        fontSize: 16,
+        color: brandColors.text,
+    },
+    modalOptionTextSelected: {
         fontFamily: typography.emphasis,
+        color: brandColors.primary,
     },
     questionsList: {
         flexDirection: 'column',
