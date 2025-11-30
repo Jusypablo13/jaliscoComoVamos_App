@@ -34,6 +34,7 @@ import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 import { YesNoPieChart } from './analytics/yes-no-pie-chart'
+import { CommentsSection } from './comments-section'
 
 // Dropdown filter option type
 type FilterOption<T> = {
@@ -1175,6 +1176,9 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                 updateFilter={handleUpdateFilter}
                 onClear={clearAllFilters}
             />
+
+            <CommentsSection questionId={questionId.toString()} />
+            <View style={{ height: 40 }} />
 
         </ScrollView>
     )
