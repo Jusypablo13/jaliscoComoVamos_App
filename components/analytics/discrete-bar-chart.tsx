@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
     Dimensions,
     ScrollView,
@@ -162,13 +162,15 @@ export function DiscreteBarChart({
 
     // Generate color functions for each bar when using color legend
     // This maps each bar to its corresponding CATEGORY_COLOR
-    const barColorFunctions = shouldUseColorLegend
-        ? data.map((_, index) => {
+    // Memoized to avoid unnecessary recalculation
+    const barColorFunctions = useMemo(() => {
+        if (!shouldUseColorLegend) return undefined
+        return data.map((_, index) => {
             const color = getLegendColor(index)
             const { r, g, b } = parseHexColor(color)
             return (opacity: number = 1) => `rgba(${r}, ${g}, ${b}, ${opacity})`
         })
-        : undefined
+    }, [shouldUseColorLegend, data])
 
     // Chart data structure for react-native-chart-kit
     const chartData = {
@@ -177,7 +179,7 @@ export function DiscreteBarChart({
             {
                 data: values,
                 // Add colors array when using color legend to match bars with legend
-                ...(shouldUseColorLegend && barColorFunctions ? { colors: barColorFunctions } : {}),
+                ...(shouldUseColorLegend ? { colors: barColorFunctions } : {}),
             },
         ],
     }
