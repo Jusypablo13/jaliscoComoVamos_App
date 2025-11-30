@@ -129,24 +129,10 @@ export function DiscreteBarChart({
 
     const values = data.map((item) => item.value)
 
-    // Chart data structure for react-native-chart-kit
-    const chartData = {
-        labels: displayLabels,
-        datasets: [
-            {
-                data: values,
-            },
-        ],
-    }
-
-    // Get color for legend items (used for visual identification)
+    // Get color for legend items and bar colors (used for visual identification)
     const getLegendColor = (index: number): string => {
         return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
     }
-
-    // Determine bar color - use provided color or brand accent
-    // Note: react-native-chart-kit uses a single color for all bars
-    const effectiveBarColor = barColor || brandColors.accent
 
     /**
      * Parse a hex color string to RGB values.
@@ -173,6 +159,32 @@ export function DiscreteBarChart({
         }
         return fallback
     }
+
+    // Generate color functions for each bar when using color legend
+    // This maps each bar to its corresponding CATEGORY_COLOR
+    const barColorFunctions = shouldUseColorLegend
+        ? data.map((_, index) => {
+            const color = getLegendColor(index)
+            const { r, g, b } = parseHexColor(color)
+            return (opacity: number = 1) => `rgba(${r}, ${g}, ${b}, ${opacity})`
+        })
+        : undefined
+
+    // Chart data structure for react-native-chart-kit
+    const chartData = {
+        labels: displayLabels,
+        datasets: [
+            {
+                data: values,
+                // Add colors array when using color legend to match bars with legend
+                ...(shouldUseColorLegend && barColorFunctions ? { colors: barColorFunctions } : {}),
+            },
+        ],
+    }
+
+    // Determine bar color - use provided color or brand accent
+    // Note: react-native-chart-kit uses a single color for all bars when not using color legend
+    const effectiveBarColor = barColor || brandColors.accent
 
     const chartConfig = {
         backgroundGradientFrom: brandColors.surface,
@@ -223,6 +235,7 @@ export function DiscreteBarChart({
                     verticalLabelRotation={labelRotation}
                     fromZero
                     showValuesOnTopOfBars={showValuesOnTopOfBars}
+                    withCustomBarColorFromData={shouldUseColorLegend}
                     style={styles.chart}
                 />
             </View>
