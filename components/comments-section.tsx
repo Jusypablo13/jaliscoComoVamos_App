@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -42,10 +42,41 @@ const mockComments: CommentData[] = [
     }
 ];
 
+// Mock db
+const mockDb: Record<string, CommentData[]> = {
+    '1': [
+        { id: '10', userId: 'u2', userName: 'José Pablo', content: 'Tung Tung Tung Sahur', createdAt: 'Hace 2 horas' }
+    ]
+}
+
 export const CommentsSection = ({ questionId }: CommentsSectionProps) => {
-    const [comments, setComments] = useState<CommentData[]>(mockComments);
+    const [comments, setComments] = useState<CommentData[]>([]);
     const [inputText, setInputText] = useState('');
     const [isPosting, setIsPosting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        loadCommentsForQuestion();
+    }, [questionId]);
+
+    const loadCommentsForQuestion = () => {
+        setIsLoading(true);
+
+        setTimeout(() => {
+            const specificComments = mockDb[questionId] || [
+                { 
+                    id: `gen-${Date.now()}`, 
+                    userId: 'sys', 
+                    userName: 'Sistema', 
+                    content: `Aún no hay comentarios para esta pregunta (${questionId})`, 
+                    createdAt: 'Ahora' 
+                }
+            ];
+
+            setComments(specificComments);
+            setIsLoading(false);
+        }, 600); // Carga falsa (simulación)
+    }
 
     const handleSendComment = () => {
         if (!inputText.trim()) return;
@@ -72,21 +103,28 @@ export const CommentsSection = ({ questionId }: CommentsSectionProps) => {
         <View style={styles.container}>
             <Text style={styles.title}> Comentarios </Text>
 
-            <View style={styles.listContainer}>
-                {comments.length === 0 ? (
-                    <Text style={styles.emptyText}> No hay comentarios aún. </Text> 
-                ) : (
-                    comments.map((comment) => (
-                        <View key={comment.id} style={styles.commentCard}>
-                            <View style={styles.commentHeader}>
-                                <Text style={styles.userName}>{comment.userName}</Text>
-                                <Text style={styles.date}>{comment.createdAt}</Text>
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={brandColors.primary} />
+                    <Text style={styles.loadingText}>Cargando comentarios...</Text>
+                </View>
+            ) : (
+                <View style={styles.listContainer}>
+                    {comments.length === 0 ? (
+                        <Text style={styles.emptyText}>No hay comentarios aún.</Text>
+                    ) : (
+                        comments.map((comment) => (
+                            <View key={comment.id} style={styles.commentCard}>
+                                <View style={styles.commentHeader}>
+                                    <Text style={styles.userName}>{comment.userName}</Text>
+                                    <Text style={styles.date}>{comment.createdAt}</Text>
+                                </View>
+                                <Text style={styles.content}>{comment.content}</Text>
                             </View>
-                            <Text style={styles.content}>{comment.content}</Text>
-                        </View>
-                    ))
-                )}
-            </View>
+                        ))
+                    )}
+                </View>
+            )}
 
             <View style={styles.inputContainer}>
                 <TextInput
@@ -100,7 +138,7 @@ export const CommentsSection = ({ questionId }: CommentsSectionProps) => {
                 <TouchableOpacity 
                     style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
                     onPress={handleSendComment}
-                    disabled={!inputText.trim() || isPosting}
+                    disabled={!inputText.trim() || isPosting || isLoading}
                 >
                     {isPosting ? (
                         <ActivityIndicator size="small" color="#FFF" />
@@ -130,6 +168,17 @@ const styles = StyleSheet.create({
     },
     listContainer: {
         marginBottom: 16,
+    },
+    loadingContainer: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8
+    },
+    loadingText: {
+        fontFamily: typography.regular,
+        color: brandColors.muted,
+        fontSize: 12
     },
     commentCard: {
         backgroundColor: '#F9FAFB',

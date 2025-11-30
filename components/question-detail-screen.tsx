@@ -1177,7 +1177,7 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                 onClear={clearAllFilters}
             />
 
-            <CommentsSection questionId={questionId.toString()} />
+            <CommentsSection questionId={column} />
             <View style={{ height: 40 }} />
 
         </ScrollView>
