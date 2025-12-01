@@ -32,6 +32,8 @@ export function FilterBar({
     const [categories, setCategories] = useState<string[]>([])
     const [questions, setQuestions] = useState<Question[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState<Question[]>([])
+    const [isSearching, setIsSearching] = useState(false)
     const [modalVisible, setModalVisible] = useState(false)
 
     useEffect(() => {
@@ -75,30 +77,77 @@ export function FilterBar({
                     style={styles.searchInput}
                     placeholder="Buscar tema o pregunta..."
                     value={searchQuery}
-                    onChangeText={(text) => {
+                    onChangeText={async (text) => {
                         setSearchQuery(text)
+                        if (text.length > 2) {
+                            setIsSearching(true)
+                            const results = await AnalyticsService.searchQuestions(text)
+                            setSearchResults(results)
+                        } else {
+                            setIsSearching(false)
+                            setSearchResults([])
+                        }
                         onSearch(text)
                     }}
                     placeholderTextColor={brandColors.muted}
                 />
             </View>
 
-            {/* Theme Selector - Bottom Sheet Trigger */}
-            <View style={styles.section}>
-                <Text style={styles.label}>Temática</Text>
-                <TouchableOpacity
-                    style={styles.dropdownButton}
-                    onPress={() => setModalVisible(true)}
-                >
-                    <Text style={[
-                        styles.dropdownButtonText,
-                        !selectedTheme && styles.placeholderText
-                    ]}>
-                        {selectedTheme || 'Seleccionar temática'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color={brandColors.muted} />
-                </TouchableOpacity>
-            </View>
+            {/* Search Results */}
+            {isSearching && (
+                <View style={styles.section}>
+                    <Text style={styles.label}>Resultados de búsqueda</Text>
+                    {searchResults.length === 0 ? (
+                        <Text style={styles.noResultsText}>No se encontraron resultados</Text>
+                    ) : (
+                        <View style={styles.questionsList}>
+                            {searchResults.map((q) => (
+                                <TouchableOpacity
+                                    key={q.id || q.pregunta_id}
+                                    style={styles.questionItem}
+                                    onPress={() => {
+                                        // If it has a category, we might want to select that theme too
+                                        if (q.nombre_categoria) {
+                                            onThemeSelect(q.nombre_categoria)
+                                        }
+                                        onQuestionSelect(q)
+                                        setSearchQuery('')
+                                        setIsSearching(false)
+                                    }}
+                                >
+                                    <View>
+                                        {q.nombre_categoria && (
+                                            <Text style={styles.resultCategory}>{q.nombre_categoria}</Text>
+                                        )}
+                                        <Text style={styles.questionText}>
+                                            {q.texto_pregunta?.trim() || q.pregunta_id}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+                </View>
+            )}
+
+            {/* Theme Selector - Bottom Sheet Trigger (Hidden when searching) */}
+            {!isSearching && (
+                <View style={styles.section}>
+                    <Text style={styles.label}>Temática</Text>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Text style={[
+                            styles.dropdownButtonText,
+                            !selectedTheme && styles.placeholderText
+                        ]}>
+                            {selectedTheme || 'Seleccionar temática'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={brandColors.muted} />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Theme Selection Modal */}
             <Modal
@@ -158,8 +207,8 @@ export function FilterBar({
                 </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Question Selector (Only if theme selected) */}
-            {selectedTheme && questions.length > 0 && (
+            {/* Question Selector (Only if theme selected and not searching) */}
+            {!isSearching && selectedTheme && questions.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.label}>Preguntas</Text>
                     <View style={styles.questionsList}>
@@ -308,5 +357,18 @@ const styles = StyleSheet.create({
     questionTextSelected: {
         color: brandColors.surface,
         fontFamily: typography.emphasis,
+    },
+    noResultsText: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.muted,
+        fontStyle: 'italic',
+    },
+    resultCategory: {
+        fontFamily: typography.emphasis,
+        fontSize: 10,
+        color: brandColors.primary,
+        marginBottom: 2,
+        textTransform: 'uppercase',
     },
 })
