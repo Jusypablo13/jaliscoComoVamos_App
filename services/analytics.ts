@@ -407,16 +407,16 @@ export function distributionToBarDataWithLabels(
             const categoryLabel = item.isNsNc
                 ? nsNcLabel
                 : labelMap.get(item.value) || String(item.value)
-            
+
             // Check if this item is 'No aplica'
             const isNoAplica = labelMap.get(item.value) === NO_APLICA_LABEL
-            
+
             // Recalculate percentage based on validCount (excluding NS/NC and 'No aplica')
             // NS/NC and 'No aplica' items receive 0%
             const recalculatedPercentage = validCount > 0 && !item.isNsNc && !isNoAplica
                 ? parseFloat(((item.count / validCount) * 100).toFixed(1))
                 : 0
-                
+
             return {
                 label: categoryLabel,
                 value: recalculatedPercentage,
@@ -966,6 +966,41 @@ export const AnalyticsService = {
             return [];
         }
     },
+
+    /**
+     * Searches for questions matching the query string.
+     * Searches in both question text and category name.
+     * 
+     * @param query - The search query string
+     * @returns Array of matching Question objects
+     */
+    async searchQuestions(query: string): Promise<Question[]> {
+        try {
+            if (!query || query.trim().length < 2) {
+                return []
+            }
+
+            const cleanQuery = query.trim()
+
+            // Search in both question text and category name
+            // We use 'or' to match either condition
+            const { data, error } = await supabase
+                .from('preguntas')
+                .select('id, pregunta_id, texto_pregunta, descripcion, is_yes_or_no, is_closed_category, escala_max, nombre_categoria')
+                .or(`texto_pregunta.ilike.%${cleanQuery}%,nombre_categoria.ilike.%${cleanQuery}%`)
+                .limit(50)
+
+            if (error) {
+                console.error('Error searching questions:', error)
+                return []
+            }
+
+            return data as Question[]
+        } catch (error) {
+            console.error('Analytics Service Error (searchQuestions):', error)
+            return []
+        }
+    },
 }
 
 export type Question = {
@@ -976,4 +1011,5 @@ export type Question = {
     is_yes_or_no?: boolean | null
     is_closed_category?: boolean | null
     escala_max?: number | null
+    nombre_categoria?: string | null
 }
