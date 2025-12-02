@@ -3,7 +3,9 @@ import {
     ActivityIndicator,
     Animated,
     FlatList,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -35,6 +37,7 @@ import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 import { YesNoPieChart } from './analytics/yes-no-pie-chart'
 import { CommentsSection } from './comments-section'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 // Dropdown filter option type
 type FilterOption<T> = {
@@ -728,9 +731,14 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     )
 
     return (
-        <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
-            {/* Sticky Header: Question Title, Description, and Filters */}
-            <View style={styles.stickyHeader}>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+            <ScrollView style={styles.container} stickyHeaderIndices={[0]}>
+                {/* Sticky Header: Question Title, Description, and Filters */}
+                <View style={styles.stickyHeader}>
                 {/* Question Header */}
                 <View style={styles.header}>
                     <View style={styles.headerTopRow}>
@@ -1118,7 +1126,8 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
             <CommentsSection questionId={column} />
             <View style={{ height: 40 }} />
 
-        </ScrollView>
+            </ScrollView>
+        </KeyboardAvoidingView>
     )
 }
 
