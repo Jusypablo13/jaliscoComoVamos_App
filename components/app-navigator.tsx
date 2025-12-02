@@ -5,7 +5,8 @@ import { QuestionDetailScreen } from './question-detail-screen'
 import { brandColors } from '../styles/theme'
 import { Ionicons } from '@expo/vector-icons'
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootStackParamList } from './navigation/NavigationTypes'; 
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { RootStackParamList } from './navigation/NavigationTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator()
@@ -14,8 +15,8 @@ function HomeScreenAndNavigator() {
     return (
         <Stack.Navigator initialRouteName="Home">
             <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen 
-                name="QuestionDetail" 
+            <Stack.Screen
+                name="QuestionDetail"
                 component={QuestionDetailScreen}
                 options={{ title: 'Detalle de Pregunta' }}
             />
@@ -49,7 +50,20 @@ export function AppNavigator() {
                 },
             })}
         >
-            <Tab.Screen name="Inicio" component={HomeScreenAndNavigator} />
+            <Tab.Screen
+                name="Inicio"
+                component={HomeScreenAndNavigator}
+                options={({ route }) => {
+                    const routeName = getFocusedRouteNameFromRoute(route) ?? 'Home'
+                    return {
+                        tabBarStyle: {
+                            backgroundColor: brandColors.surface,
+                            borderTopColor: '#E0E4EA',
+                            display: routeName === 'QuestionDetail' ? 'none' : 'flex',
+                        },
+                    }
+                }}
+            />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>
     )
