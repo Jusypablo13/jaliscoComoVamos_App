@@ -2,11 +2,13 @@ import { User } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
 import {
     ActivityIndicator,
+    Linking,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
@@ -139,6 +141,63 @@ export function ProfileScreen() {
                 </View>
             )}
 
+            {/* Social Media Buttons */}
+            <View style={styles.socialSection}>
+                <Text style={styles.socialTitle}>Síguenos en redes</Text>
+                <View style={styles.socialButtonsContainer}>
+                    <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#1877F2' }]}
+                        onPress={() => Linking.openURL('https://www.facebook.com/jaliscomovamos')}
+                    >
+                        <View style={styles.socialIconContainer}>
+                            <Ionicons name="logo-facebook" size={20} color="white" />
+                        </View>
+                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#000000' }]}
+                        onPress={() => Linking.openURL('https://x.com/jaliscomovamos')}
+                    >
+                        <View style={styles.socialIconContainer}>
+                            {/* Custom X Logo using Text since Ionicons might not have it yet */}
+                            <Text style={styles.xLogo}>𝕏</Text>
+                        </View>
+                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#E4405F' }]}
+                        onPress={() => Linking.openURL('https://www.instagram.com/jaliscomovamos/')}
+                    >
+                        <View style={styles.socialIconContainer}>
+                            <Ionicons name="logo-instagram" size={20} color="white" />
+                        </View>
+                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: '#FF0000' }]}
+                        onPress={() => Linking.openURL('https://www.youtube.com/channel/UCn1zLVu1oCAcXzlhMEMgE2w')}
+                    >
+                        <View style={styles.socialIconContainer}>
+                            <Ionicons name="logo-youtube" size={20} color="white" />
+                        </View>
+                        <Text style={styles.socialButtonText}>Jalisco Cómo Vamos</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.socialButton, { backgroundColor: brandColors.primary }]}
+                        onPress={() => Linking.openURL('https://jaliscocomovamos.org/')}
+                    >
+                        <View style={styles.socialIconContainer}>
+                            <Ionicons name="globe-outline" size={20} color="white" />
+                        </View>
+                        <Text style={styles.socialButtonText}>jaliscocomovamos.org</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
             {!isGuest && (
                 <View style={styles.signOutContainer}>
                     <SignOutButton />
@@ -225,6 +284,52 @@ const styles = StyleSheet.create({
         flexShrink: 1,
     },
     signOutContainer: {
+        marginTop: 20,
+        marginBottom: 40,
+    },
+    socialSection: {
         marginTop: 'auto',
+        marginBottom: 20,
+        alignItems: 'center',
+    },
+    socialTitle: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.muted,
+        marginBottom: 12,
+    },
+    socialButtonsContainer: {
+        flexDirection: 'column',
+        gap: 12,
+        width: '100%',
+    },
+    socialButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    socialIconContainer: {
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    socialButtonText: {
+        fontFamily: typography.heading,
+        fontSize: 14,
+        color: 'white',
+    },
+    xLogo: {
+        fontSize: 20,
+        color: 'white',
+        fontWeight: 'bold',
     },
 })
