@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { HomeScreen } from './home-screen'
 import { ProfileScreen } from './profile-screen'
 import { QuestionDetailScreen } from './question-detail-screen'
+import { LoginScreen } from './login'
 import { brandColors } from '../styles/theme'
 import { Ionicons } from '@expo/vector-icons'
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,6 +11,7 @@ import { RootStackParamList } from './navigation/NavigationTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator()
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 function HomeScreenAndNavigator() {
     return (
@@ -24,7 +26,7 @@ function HomeScreenAndNavigator() {
     );
 }
 
-export function AppNavigator() {
+function MainTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -66,5 +68,18 @@ export function AppNavigator() {
             />
             <Tab.Screen name="Perfil" component={ProfileScreen} />
         </Tab.Navigator>
+    )
+}
+
+export function AppNavigator() {
+    return (
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            <RootStack.Screen name="Main" component={MainTabs} />
+            <RootStack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={{ presentation: 'modal' }}
+            />
+        </RootStack.Navigator>
     )
 }

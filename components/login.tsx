@@ -13,11 +13,14 @@ import {
 import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
+import { useNavigation } from '@react-navigation/native'
+
 type Props = {
   onAuthSuccess?: () => void
 }
 export function LoginScreen({ onAuthSuccess }: Props) {
-  const { loginAsGuest } = useAuthContext()
+  const { loginAsGuest, isGuest } = useAuthContext()
+  const navigation = useNavigation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -113,6 +116,9 @@ export function LoginScreen({ onAuthSuccess }: Props) {
         setHasError(false)
         if (data.session) {
           onAuthSuccess?.()
+          if (navigation.canGoBack()) {
+            navigation.goBack()
+          }
         }
       }
     } catch (error: any) {
@@ -211,13 +217,15 @@ export function LoginScreen({ onAuthSuccess }: Props) {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={loginAsGuest}
-          disabled={isSubmitting}
-          style={styles.guestButton}
-        >
-          <Text style={styles.guestButtonText}>Continuar como invitado</Text>
-        </TouchableOpacity>
+        {!isGuest && (
+          <TouchableOpacity
+            onPress={loginAsGuest}
+            disabled={isSubmitting}
+            style={styles.guestButton}
+          >
+            <Text style={styles.guestButtonText}>Continuar como invitado</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   )

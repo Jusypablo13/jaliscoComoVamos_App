@@ -10,7 +10,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AppNavigator } from './components/app-navigator'
 import AuthProvider from './components/auth-provider'
 import { CategorySelectionScreen } from './components/category-selection-screen'
-import { LoginScreen } from './components/login'
+import { OnboardingScreen } from './components/onboarding-screen'
 import { SplashScreenController } from './components/splash-screen-controller'
 import {
   UserPreferencesProvider,
@@ -38,7 +38,7 @@ function AppContent() {
   if (!isLoggedIn) {
     return (
       <ScreenContainer>
-        <LoginScreen />
+        <OnboardingScreen />
       </ScreenContainer>
     )
   }
