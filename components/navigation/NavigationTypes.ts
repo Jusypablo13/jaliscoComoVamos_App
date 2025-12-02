@@ -16,6 +16,8 @@ export type RootStackParamList = {
         escalaMax?: number | null; // Maximum scale value for numeric questions
         theme?: string; // The theme/category of the question, used for navigation
     };
+    Main: undefined;
+    Login: undefined;
 };
 
 // Functional components can use these types to type their props:

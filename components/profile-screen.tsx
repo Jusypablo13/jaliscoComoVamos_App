@@ -14,10 +14,14 @@ import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
 import SignOutButton from './sign-out-button'
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { RootStackParamList } from './navigation/NavigationTypes'
 
 
 export function ProfileScreen() {
     const { session, profile, isGuest, logout } = useAuthContext()
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
     const [userInfo, setUserInfo] = useState<User | null>(null)
     const [isFetchingUserInfo, setIsFetchingUserInfo] = useState(false)
     const [userInfoError, setUserInfoError] = useState<string | null>(null)
@@ -139,8 +143,7 @@ export function ProfileScreen() {
                     </Text>
                     <TouchableOpacity
                         style={styles.button}
-                        // Signing out clears the guest session, triggering the auth flow again
-                        onPress={logout}
+                        onPress={() => navigation.navigate('Login')}
                         accessibilityLabel="Ir al inicio de sesión"
                         accessibilityRole="button"
                     >
