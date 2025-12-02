@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
+    Alert,
     Animated,
     FlatList,
     KeyboardAvoidingView,
@@ -14,6 +15,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { captureRef } from 'react-native-view-shot'
 import { RootStackParamList } from './navigation/NavigationTypes'
 import {
     AnalyticsService,
@@ -32,6 +34,7 @@ import {
     EDUCATION_GROUPS,
     QUALITY_OF_LIFE_GROUPS,
 } from '../services/analytics'
+import { generateAndShareChartPdf, isPdfExportSupported } from '../services/pdf-export'
 import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
@@ -340,6 +343,10 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     const [selectedCalidadVidaGroupId, setSelectedCalidadVidaGroupId] = useState<number | undefined>(undefined)
     const [showGroupedBySexo, setShowGroupedBySexo] = useState(false)
     const [showTable, setShowTable] = useState(false)
+    const [isExportingPdf, setIsExportingPdf] = useState(false)
+
+    // Ref to capture chart for PDF export
+    const chartRef = useRef<View>(null)
 
     // Dropdown modal state
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
@@ -602,6 +609,57 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
         }
         return parts.length > 0 ? parts.join(' | ') : 'Sin filtros activos'
     }
+
+    // Handle PDF export
+    const handleExportPdf = async () => {
+        if (!chartRef.current) {
+            Alert.alert('Error', 'No se pudo capturar la gráfica.')
+            return
+        }
+
+        if (!isPdfExportSupported()) {
+            Alert.alert('No disponible', 'La exportación a PDF no está disponible en esta plataforma.')
+            return
+        }
+
+        try {
+            setIsExportingPdf(true)
+
+            // Capture the chart as an image
+            const chartImageUri = await captureRef(chartRef, {
+                format: 'png',
+                quality: 1,
+                result: 'base64',
+            })
+
+            // Get sample size data
+            const sampleSize = distribution?.n || groupedDistribution?.groups.reduce((sum, g) => sum + g.n, 0) || 0
+            const validResponses = distribution?.nValid || groupedDistribution?.groups.reduce((sum, g) => sum + g.nValid, 0) || 0
+
+            // Generate and share the PDF
+            await generateAndShareChartPdf({
+                chartImageBase64: chartImageUri,
+                questionTitle: questionText || column,
+                questionId: column,
+                questionDescription: questionDescription || undefined,
+                sampleSize,
+                validResponses,
+                activeFiltersText: getActiveFiltersText(),
+                surveyVersion: 'Encuesta Jalisco Cómo Vamos 2024',
+            })
+        } catch (error) {
+            console.error('Error exporting PDF:', error)
+            Alert.alert('Error', 'No se pudo generar el PDF. Por favor, intenta de nuevo.')
+        } finally {
+            setIsExportingPdf(false)
+        }
+    }
+
+    // Check if chart is visible (for showing download button)
+    const hasVisibleChart = !showGroupedBySexo && (
+        (chartType === 'pie' && yesNoDistribution) ||
+        barChartData.length > 0
+    )
 
     if (isLoading) {
         return (
@@ -872,16 +930,18 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                     {/* Chart Section with Loading Overlay */}
                     {chartType === 'pie' && yesNoDistribution ? (
                         <View style={styles.chartSection}>
-                            <Animated.View style={{ opacity: fadeAnim }}>
-                                <YesNoPieChart
-                                    yesPercentage={yesNoDistribution.yesPercentage}
-                                    noPercentage={yesNoDistribution.noPercentage}
-                                    yesCount={yesNoDistribution.yesCount}
-                                    noCount={yesNoDistribution.noCount}
-                                    title="Distribución de Respuestas"
-                                    subtitle={`N válido = ${yesNoDistribution.nValid}`}
-                                />
-                            </Animated.View>
+                            <View ref={chartRef} collapsable={false} style={styles.chartCaptureArea}>
+                                <Animated.View style={{ opacity: fadeAnim }}>
+                                    <YesNoPieChart
+                                        yesPercentage={yesNoDistribution.yesPercentage}
+                                        noPercentage={yesNoDistribution.noPercentage}
+                                        yesCount={yesNoDistribution.yesCount}
+                                        noCount={yesNoDistribution.noCount}
+                                        title="Distribución de Respuestas"
+                                        subtitle={`N válido = ${yesNoDistribution.nValid}`}
+                                    />
+                                </Animated.View>
+                            </View>
                             {/* Loading Overlay */}
                             {isRefreshing && (
                                 <Animated.View
@@ -897,13 +957,15 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                         </View>
                     ) : barChartData.length > 0 && (
                         <View style={styles.chartSection}>
-                            <Animated.View style={{ opacity: fadeAnim }}>
-                                <DiscreteBarChart
-                                    data={barChartData}
-                                    title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
-                                    subtitle={`N válido = ${distribution.nValid}`}
-                                />
-                            </Animated.View>
+                            <View ref={chartRef} collapsable={false} style={styles.chartCaptureArea}>
+                                <Animated.View style={{ opacity: fadeAnim }}>
+                                    <DiscreteBarChart
+                                        data={barChartData}
+                                        title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
+                                        subtitle={`N válido = ${distribution.nValid}`}
+                                    />
+                                </Animated.View>
+                            </View>
                             {/* Loading Overlay */}
                             {isRefreshing && (
                                 <Animated.View
@@ -917,6 +979,25 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                                 </Animated.View>
                             )}
                         </View>
+                    )}
+
+                    {/* Download PDF Button */}
+                    {hasVisibleChart && isPdfExportSupported() && (
+                        <TouchableOpacity
+                            style={styles.downloadButton}
+                            onPress={handleExportPdf}
+                            disabled={isExportingPdf}
+                            activeOpacity={0.7}
+                        >
+                            {isExportingPdf ? (
+                                <ActivityIndicator size="small" color={brandColors.surface} />
+                            ) : (
+                                <Ionicons name="download-outline" size={20} color={brandColors.surface} />
+                            )}
+                            <Text style={styles.downloadButtonText}>
+                                {isExportingPdf ? 'Generando PDF...' : 'Descargar gráfica'}
+                            </Text>
+                        </TouchableOpacity>
                     )}
 
                     {/* Toggle Button for Table View */}
@@ -1178,6 +1259,11 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
         position: 'relative',
     },
+    chartCaptureArea: {
+        backgroundColor: brandColors.surface,
+        borderRadius: 16,
+        padding: 8,
+    },
     chartOverlay: {
         position: 'absolute',
         top: 0,
@@ -1194,6 +1280,28 @@ const styles = StyleSheet.create({
         fontFamily: typography.regular,
         fontSize: 14,
         color: brandColors.muted,
+    },
+    downloadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: brandColors.primary,
+        marginHorizontal: 16,
+        marginVertical: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    downloadButtonText: {
+        fontFamily: typography.emphasis,
+        fontSize: 15,
+        color: brandColors.surface,
     },
     tableToggleButton: {
         marginHorizontal: 16,
