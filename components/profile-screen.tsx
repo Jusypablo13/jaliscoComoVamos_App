@@ -60,9 +60,9 @@ export function ProfileScreen() {
     }
 
     // Derived data
-    const userName = isGuest
-        ? 'Sin registrar'
-        : profile?.full_name || userInfo?.user_metadata?.full_name || userInfo?.user_metadata?.name || 'Usuario'
+    // const userName = isGuest
+    //     ? 'Sin registrar'
+    //     : profile?.full_name || userInfo?.user_metadata?.full_name || userInfo?.user_metadata?.name || 'Usuario'
 
     const userEmail = isGuest
         ? 'Sin correo registrado'
@@ -89,15 +89,10 @@ export function ProfileScreen() {
                 <View style={styles.avatarCircle}>
                     <Ionicons name="person" size={60} color="#A0AEC0" />
                 </View>
-                <Text style={styles.userName}>{userName}</Text>
             </View>
 
             {/* Info Card */}
             <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Nombre</Text>
-                    <Text style={styles.infoValue}>{userName}</Text>
-                </View>
                 <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Correo</Text>
                     <Text style={styles.infoValue}>{userEmail}</Text>
