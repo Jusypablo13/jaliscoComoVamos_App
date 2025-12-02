@@ -134,7 +134,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     selectedTheme={filters.theme ?? null}
                     selectedQuestion={filters.questionId ?? null}
                 />
-                <SegmentationControls
+                {/* <SegmentationControls
                     activeFilters={{
                         sexo: filters.sexo,
                         nse: filters.nse,
@@ -144,7 +144,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                         municipio: filters.municipio,
                     }}
                     onFilterChange={handleSegmentationChange}
-                />
+                /> */}
 
                 <ResultsView
                     result={result}
