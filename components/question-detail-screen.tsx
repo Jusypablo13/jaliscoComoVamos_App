@@ -807,68 +807,6 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                         </Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Compact Filter Dropdowns 
-                <View style={styles.filtersContainer}>
-                    <View style={styles.filtersRow}>
-                        {renderDropdownButton(
-                            'Municipio',
-                            getSelectedMunicipioName(),
-                            'municipio'
-                        )}
-                        {renderDropdownButton(
-                            'Sexo',
-                            showGroupedBySexo ? 'Tabla cruzada' : getSelectedSexoName(),
-                            'sexo',
-                            showGroupedBySexo
-                        )}
-                        {renderDropdownButton(
-                            'Edad',
-                            getSelectedEdadName(),
-                            'edad'
-                        )}
-                    </View>
-                    <View style={styles.filtersRow}>
-                        {renderDropdownButton(
-                            'Escolaridad',
-                            getSelectedEscolaridadName(),
-                            'escolaridad'
-                        )}
-                        {renderDropdownButton(
-                            'Calidad de vida',
-                            getSelectedCalidadVidaName(),
-                            'calidadVida'
-                        )}
-                        {/* Toggle for grouped view *
-                        <TouchableOpacity
-                            style={[
-                                styles.groupToggleCompact,
-                                showGroupedBySexo && styles.groupToggleCompactActive,
-                            ]}
-                            onPress={() => {
-                                setShowGroupedBySexo(!showGroupedBySexo)
-                                if (!showGroupedBySexo) {
-                                    // Reset individual sexo filter when enabling grouped view
-                                    setSelectedSexoId(undefined)
-                                }
-                            }}
-                        >
-                            <Ionicons 
-                                name="git-compare-outline" 
-                                size={16} 
-                                color={showGroupedBySexo ? brandColors.primary : brandColors.muted} 
-                            />
-                            <Text
-                                style={[
-                                    styles.groupToggleCompactText,
-                                    showGroupedBySexo && styles.groupToggleCompactTextActive,
-                                ]}
-                            >
-                                Cruzada
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View> */}
             </View>
 
             {/* Dropdown Modals */}
