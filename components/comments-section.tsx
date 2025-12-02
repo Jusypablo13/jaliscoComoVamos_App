@@ -192,7 +192,7 @@ export const CommentsSection = ({ questionId }: CommentsSectionProps) => {
                     editable={!isLoading}
                 />
                 <TouchableOpacity
-                    style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+                    style={[styles.sendButton, (!inputText.trim() || isPosting || isLoading) && styles.sendButtonDisabled]}
                     onPress={handleSendComment}
                     disabled={!inputText.trim() || isPosting || isLoading}
                 >
