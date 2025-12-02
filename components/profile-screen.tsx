@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View,
     Alert,
+    ScrollView
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
@@ -18,6 +19,7 @@ import { brandColors, typography } from '../styles/theme'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from './navigation/NavigationTypes'
+
 
 export function ProfileScreen() {
     const { session, profile, isGuest, logout } = useAuthContext()
@@ -50,6 +52,14 @@ export function ProfileScreen() {
         await Clipboard.setStringAsync(text)
         Alert.alert('Copiado', 'ID de usuario copiado al portapapeles')
     }
+    return (
+        <ScrollView>
+        <View style={styles.container}>
+            <View style={styles.card}>
+                <Text style={styles.cardTitle}>Información del usuario</Text>
+                <Text style={styles.cardSubtitle}>
+                    Recupera desde Supabase los datos asociados a tu sesión actual.
+                </Text>
 
     const handleLogout = async () => {
         if (isGuest) {
@@ -190,6 +200,12 @@ export function ProfileScreen() {
                     {isGuest ? 'Iniciar sesión' : 'Cerrar sesión'}
                 </Text>
             </TouchableOpacity>
+            {!isGuest && (
+                <View style={styles.signOutContainer}>
+                    <SignOutButton />
+                </View>
+            )}
+        </View>
         </ScrollView>
     )
 }
