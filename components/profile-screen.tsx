@@ -7,12 +7,14 @@ import {
     Text,
     TouchableOpacity,
     View,
+    ScrollView
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
 import SignOutButton from './sign-out-button'
+
 
 export function ProfileScreen() {
     const { session, profile, isGuest, logout } = useAuthContext()
@@ -57,6 +59,7 @@ export function ProfileScreen() {
     }, [session])
 
     return (
+        <ScrollView>
         <View style={styles.container}>
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>Información del usuario</Text>
@@ -204,6 +207,7 @@ export function ProfileScreen() {
                 </View>
             )}
         </View>
+        </ScrollView>
     )
 }
 
