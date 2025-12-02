@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
+    Alert,
     Animated,
     FlatList,
     KeyboardAvoidingView,
@@ -13,6 +14,10 @@ import {
     View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { captureRef } from 'react-native-view-shot'
+import ViewShot from 'react-native-view-shot'
+import * as FileSystem from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { RootStackParamList } from './navigation/NavigationTypes'
 import {
@@ -379,6 +384,7 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     // Animation values for smooth transitions
     const fadeAnim = useRef(new Animated.Value(1)).current
     const overlayOpacity = useRef(new Animated.Value(0)).current
+    const chartRef = useRef<ViewShot>(null)
 
     // Track if this is the initial load
     const isInitialLoad = useRef(true)
@@ -577,6 +583,37 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
     const getSelectedCalidadVidaName = () => {
         const calidadVida = CALIDADES_VIDA.find(c => c.id === selectedCalidadVidaGroupId)
         return calidadVida?.nombre || CALIDADES_VIDA[0].nombre
+    }
+
+    // Function to download chart as PNG
+    const handleDownloadChart = async () => {
+        if (!chartRef.current) {
+            Alert.alert('Error', 'No se puede capturar la gráfica en este momento.')
+            return
+        }
+
+        try {
+            // Capture the chart as image
+            const uri = await captureRef(chartRef.current, {
+                format: 'png',
+                quality: 1.0,
+                result: 'tmpfile',
+            })
+
+            // Share the image directly
+            const isAvailable = await Sharing.isAvailableAsync()
+            if (isAvailable) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'image/png',
+                    dialogTitle: 'Descargar gráfica',
+                })
+            } else {
+                Alert.alert('Éxito', 'Gráfica capturada correctamente.')
+            }
+        } catch (error) {
+            console.error('Error downloading chart:', error)
+            Alert.alert('Error', 'No se pudo descargar la gráfica. Intenta de nuevo.')
+        }
     }
 
     // Get a summary of active filters for display
@@ -872,16 +909,26 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                     {/* Chart Section with Loading Overlay */}
                     {chartType === 'pie' && yesNoDistribution ? (
                         <View style={styles.chartSection}>
-                            <Animated.View style={{ opacity: fadeAnim }}>
-                                <YesNoPieChart
-                                    yesPercentage={yesNoDistribution.yesPercentage}
-                                    noPercentage={yesNoDistribution.noPercentage}
-                                    yesCount={yesNoDistribution.yesCount}
-                                    noCount={yesNoDistribution.noCount}
-                                    title="Distribución de Respuestas"
-                                    subtitle={`N válido = ${yesNoDistribution.nValid}`}
-                                />
-                            </Animated.View>
+                            <ViewShot ref={chartRef} options={{ format: 'png', quality: 1.0 }}>
+                                <Animated.View style={{ opacity: fadeAnim }}>
+                                    <YesNoPieChart
+                                        yesPercentage={yesNoDistribution.yesPercentage}
+                                        noPercentage={yesNoDistribution.noPercentage}
+                                        yesCount={yesNoDistribution.yesCount}
+                                        noCount={yesNoDistribution.noCount}
+                                        title="Distribución de Respuestas"
+                                        subtitle={`N válido = ${yesNoDistribution.nValid}`}
+                                    />
+                                </Animated.View>
+                            </ViewShot>
+                            {/* Download Button */}
+                            <TouchableOpacity
+                                style={styles.downloadButton}
+                                onPress={handleDownloadChart}
+                            >
+                                <Ionicons name="download-outline" size={20} color={brandColors.surface} />
+                                <Text style={styles.downloadButtonText}>Descargar gráfica</Text>
+                            </TouchableOpacity>
                             {/* Loading Overlay */}
                             {isRefreshing && (
                                 <Animated.View
@@ -897,13 +944,23 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                         </View>
                     ) : barChartData.length > 0 && (
                         <View style={styles.chartSection}>
-                            <Animated.View style={{ opacity: fadeAnim }}>
-                                <DiscreteBarChart
-                                    data={barChartData}
-                                    title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
-                                    subtitle={`N válido = ${distribution.nValid}`}
-                                />
-                            </Animated.View>
+                            <ViewShot ref={chartRef} options={{ format: 'png', quality: 1.0 }}>
+                                <Animated.View style={{ opacity: fadeAnim }}>
+                                    <DiscreteBarChart
+                                        data={barChartData}
+                                        title={chartType === 'ranged-bar' ? "Distribución por Rangos" : "Distribución de Respuestas"}
+                                        subtitle={`N válido = ${distribution.nValid}`}
+                                    />
+                                </Animated.View>
+                            </ViewShot>
+                            {/* Download Button */}
+                            <TouchableOpacity
+                                style={styles.downloadButton}
+                                onPress={handleDownloadChart}
+                            >
+                                <Ionicons name="download-outline" size={20} color={brandColors.surface} />
+                                <Text style={styles.downloadButtonText}>Descargar gráfica</Text>
+                            </TouchableOpacity>
                             {/* Loading Overlay */}
                             {isRefreshing && (
                                 <Animated.View
@@ -1188,6 +1245,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 16,
+    },
+    downloadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: brandColors.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        marginTop: 12,
+        marginHorizontal: 16,
+        gap: 8,
+    },
+    downloadButtonText: {
+        fontFamily: typography.emphasis,
+        fontSize: 14,
+        color: brandColors.surface,
     },
     overlayText: {
         marginTop: 12,
