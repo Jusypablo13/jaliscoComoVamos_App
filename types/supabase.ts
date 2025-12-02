@@ -11,6 +11,31 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
+            comments: {
+                Row: {
+                    id: string
+                    created_at: string
+                    comment_content: string
+                    user_id: string
+                    question_id: string
+                }
+                Insert: {
+                    id?: string
+                    created_at?: string
+                    comment_content: string
+                    user_id: string
+                    question_id: string
+                }
+                Update: {
+                    id?: string
+                    created_at?: string
+                    comment_content?: string
+                    user_id?: string
+                    question_id?: string
+                }
+                Relationships: []
+            }
+
             preguntas: {
                 Row: {
                     id: number
@@ -39,6 +64,7 @@ export interface Database {
                     is_closed_category?: boolean | null
                     escala_max?: number | null
                 }
+                Relationships: []
             }
 
             categoria_respuesta: {
@@ -60,6 +86,7 @@ export interface Database {
                     valor_categorico?: string
                     numerico?: number
                 }
+                Relationships: []
             }
 
             Municipios: {
@@ -75,6 +102,7 @@ export interface Database {
                     id?: number
                     nombre?: string
                 }
+                Relationships: []
             }
 
             encuestalol: {
@@ -434,7 +462,20 @@ export interface Database {
                 Update: {
                     [key: string]: any
                 }
+                Relationships: []
             }
+        }
+        Views: {
+            [_ in never]: never
+        }
+        Functions: {
+            [_ in never]: never
+        }
+        Enums: {
+            [_ in never]: never
+        }
+        CompositeTypes: {
+            [_ in never]: never
         }
     }
     

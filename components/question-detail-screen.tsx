@@ -34,6 +34,7 @@ import { SCALE_MAX_THRESHOLD } from '../constants/chart-config'
 import { brandColors, typography } from '../styles/theme'
 import { DiscreteBarChart } from './analytics/discrete-bar-chart'
 import { YesNoPieChart } from './analytics/yes-no-pie-chart'
+import { CommentsSection } from './comments-section'
 
 // Dropdown filter option type
 type FilterOption<T> = {
@@ -79,10 +80,203 @@ const CALIDADES_VIDA = [
     ...Object.values(QUALITY_OF_LIFE_GROUPS).map(group => ({ id: group.id, nombre: group.label })),
 ]
 
+const FilterButton = ({ label, selected, onPress }: { label: string, selected: boolean, onPress: () => void }) => (
+    <TouchableOpacity
+        style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: selected ? brandColors.primary : '#F3F4F6',
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            marginRight: 8
+        }}
+        onPress={onPress}
+        activeOpacity={0.7}
+    >
+        <Text style={{ 
+            color: selected ? '#FFF' : '#4B5563', 
+            fontWeight: selected ? '600' : '500',
+            fontSize: 13
+        }}>
+            {label}
+        </Text>
+    </TouchableOpacity>
+);
+
+const FilterOptionRow = ({ label, value, onPress }: { label: string, value?: string, onPress: () => void }) => (
+    <TouchableOpacity 
+        style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F3F4F6'
+        }} 
+        onPress={onPress}
+    >
+        <Text style={{ fontSize: 16, color: brandColors.text, fontWeight: '500' }}>{label}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+            {value && (
+                <Text style={{ color: brandColors.primary, marginRight: 8, maxWidth: '60%', fontSize: 14 }} numberOfLines={1}>
+                    {value}
+                </Text>
+            )}
+            <Ionicons name="chevron-forward" size={20} color={brandColors.muted} />
+        </View>
+    </TouchableOpacity>
+);
+
+type ModalView = 'main' | 'municipio' | 'sexo' | 'edad' | 'escolaridad' | 'calidadVida' | 'cruzada';
+
+interface AdvancedFilterModalProps {
+    visible: boolean;
+    onClose: () => void;
+    filters: {
+        municipioId?: number;
+        sexoId?: number;
+        edadRangeId?: number;
+        escolaridadGroupId?: number;
+        calidadVidaGroupId?: number;
+        groupedBySexo: boolean;
+    };
+
+    updateFilter: (key: string, value: any) => void;
+    onClear: () => void;
+}
+
+const AdvancedFilterModal = ({ visible, onClose, filters, updateFilter, onClear }: AdvancedFilterModalProps) => {
+    const [currentView, setCurrentView] = useState<ModalView>('main');
+
+    // Resetear a la vista principal cada vez que se abre el modal
+    useEffect(() => {
+        if (visible) setCurrentView('main');
+    }, [visible]);
+
+    const getName = (list: any[], id?: number) => list.find(i => i.id === id)?.nombre || 'Todos';
+
+    // Render de sub-listas
+    const renderSelectionList = (title: string, data: any[], selectedId: number | undefined, filterKey: string) => (
+        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>
+                <TouchableOpacity onPress={() => setCurrentView('main')} style={{ paddingRight: 16 }}>
+                    <Ionicons name="arrow-back" size={24} color={brandColors.text} />
+                </TouchableOpacity>
+                <Text style={{ fontSize: 18, fontWeight: '600', color: brandColors.text }}>{title}</Text>
+            </View>
+            <FlatList
+                data={data}
+                keyExtractor={item => String(item.id ?? 'all')}
+                renderItem={({ item }) => (
+                    <TouchableOpacity 
+                        style={{ 
+                            flexDirection: 'row', justifyContent: 'space-between', padding: 16, 
+                            backgroundColor: selectedId === item.id ? '#F9FAFB' : 'white',
+                            borderBottomWidth: 1, borderBottomColor: '#F3F4F6'
+                        }}
+                        onPress={() => {
+                            updateFilter(filterKey, item.id);
+                            setCurrentView('main'); // Volver atrás automáticamente
+                        }}
+                    >
+                        <Text style={{ fontSize: 16, color: selectedId === item.id ? brandColors.primary : brandColors.text, fontWeight: selectedId === item.id ? '600' : '400' }}>
+                            {item.nombre}
+                        </Text>
+                        {selectedId === item.id && <Ionicons name="checkmark" size={20} color={brandColors.primary} />}
+                    </TouchableOpacity>
+                )}
+            />
+        </View>
+    );
+
+    // Si no es la vista principal, mostramos la sub-lista correspondiente
+    if (currentView === 'municipio') return <Modal visible={visible} animationType="slide">{renderSelectionList('Seleccionar Municipio', MUNICIPIOS, filters.municipioId, 'municipioId')}</Modal>;
+    if (currentView === 'edad') return <Modal visible={visible} animationType="slide">{renderSelectionList('Rango de Edad', EDADES, filters.edadRangeId, 'edadRangeId')}</Modal>;
+    if (currentView === 'escolaridad') return <Modal visible={visible} animationType="slide">{renderSelectionList('Nivel Escolar', ESCOLARIDADES, filters.escolaridadGroupId, 'escolaridadGroupId')}</Modal>;
+    if (currentView === 'calidadVida') return <Modal visible={visible} animationType="slide">{renderSelectionList('Calidad de Vida', CALIDADES_VIDA, filters.calidadVidaGroupId, 'calidadVidaGroupId')}</Modal>;
+
+    // Vista principal del modal
+    return (
+        <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+            <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>
+                    <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={brandColors.text} /></TouchableOpacity>
+                    <Text style={{ fontSize: 17, fontWeight: '600' }}>Filtros</Text>
+                    <TouchableOpacity onPress={onClear}><Text style={{ color: brandColors.primary, fontSize: 16 }}>Limpiar</Text></TouchableOpacity>
+                </View>
+
+                <ScrollView style={{ flex: 1 }}>
+
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: brandColors.muted, marginLeft: 16, marginTop: 20, marginBottom: 10 }}>VISTA</Text>
+                    <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginBottom: 10 }}>
+                        <FilterButton label="Gráfica Simple" selected={!filters.groupedBySexo} onPress={() => updateFilter('groupedBySexo', false)} />
+                        <FilterButton label="Comparativa Sexo" selected={filters.groupedBySexo} onPress={() => {
+                            updateFilter('groupedBySexo', true);
+                            updateFilter('sexoId', undefined); 
+                        }} />
+                    </View>
+
+                    {!filters.groupedBySexo && (
+                        <>
+                            <Text style={{ fontSize: 14, fontWeight: '600', color: brandColors.muted, marginLeft: 16, marginTop: 10, marginBottom: 10 }}>SEXO</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+                                {SEXOS.map(s => (
+                                    <FilterButton
+                                        key={s.id ?? 'all'}
+                                        label={s.nombre} 
+                                        selected={filters.sexoId === s.id} 
+                                        onPress={() => updateFilter('sexoId', s.id)} 
+                                    />
+                                ))}
+                            </ScrollView>
+                        </>
+                    )}
+
+                    <View style={{ height: 8, backgroundColor: '#F9FAFB', marginVertical: 10 }} />
+
+                    <FilterOptionRow label="Municipio" value={getName(MUNICIPIOS, filters.municipioId)} onPress={() => setCurrentView('municipio')} />
+                    <FilterOptionRow label="Rango de Edad" value={getName(EDADES, filters.edadRangeId)} onPress={() => setCurrentView('edad')} />
+                    <FilterOptionRow label="Nivel Escolar" value={getName(ESCOLARIDADES, filters.escolaridadGroupId)} onPress={() => setCurrentView('escolaridad')} />
+                    <FilterOptionRow label="Calidad de Vida" value={getName(CALIDADES_VIDA, filters.calidadVidaGroupId)} onPress={() => setCurrentView('calidadVida')} />
+                </ScrollView>
+
+                <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+                    <TouchableOpacity 
+                        style={{ backgroundColor: brandColors.primary, borderRadius: 30, paddingVertical: 16, alignItems: 'center' }}
+                        onPress={onClose}
+                    >
+                        <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>Ver Resultados</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+
 export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreenProps) {
     const { questionId, column, questionText, questionDescription, isYesOrNo, isClosedCategory, escalaMax, theme } = route.params
-
+    const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [questions, setQuestions] = useState<Question[]>([])
+    const handleUpdateFilter = (key: string, value: any) => {
+        if (key === 'municipioId') setSelectedMunicipioId(value === 'all' ? undefined : value);
+        if (key === 'sexoId') setSelectedSexoId(value === 'all' ? undefined : value);
+        if (key === 'edadRangeId') setSelectedEdadRangeId(value === 'all' ? undefined : value);
+        if (key === 'escolaridadGroupId') setSelectedEscolaridadGroupId(value === 'all' ? undefined : value);
+        if (key === 'calidadVidaGroupId') setSelectedCalidadVidaGroupId(value === 'all' ? undefined : value);
+        if (key === 'groupedBySexo') setShowGroupedBySexo(value);
+    };
+    const clearAllFilters = () => {
+        setSelectedMunicipioId(undefined);
+        setSelectedSexoId(undefined);
+        setSelectedEdadRangeId(undefined);
+        setSelectedEscolaridadGroupId(undefined);
+        setSelectedCalidadVidaGroupId(undefined);
+        setShowGroupedBySexo(false);
+    };
 
     // Fetch questions for navigation
     useEffect(() => {
@@ -146,6 +340,15 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
 
     // Dropdown modal state
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
+
+    // Calculate active filters count
+    const activeFiltersCount = [
+        selectedMunicipioId, 
+        selectedEdadRangeId, 
+        selectedEscolaridadGroupId, 
+        selectedCalidadVidaGroupId,
+        (!showGroupedBySexo ? selectedSexoId : undefined)
+    ].filter(v => v !== undefined).length;
 
     // Determine chart type based on question metadata
     const chartType = useMemo(() =>
@@ -557,66 +760,52 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                     )}
                 </View>
 
-                {/* Compact Filter Dropdowns */}
-                <View style={styles.filtersContainer}>
-                    <View style={styles.filtersRow}>
-                        {renderDropdownButton(
-                            'Municipio',
-                            getSelectedMunicipioName(),
-                            'municipio'
-                        )}
-                        {renderDropdownButton(
-                            'Sexo',
-                            showGroupedBySexo ? 'Tabla cruzada' : getSelectedSexoName(),
-                            'sexo',
-                            showGroupedBySexo
-                        )}
-                        {renderDropdownButton(
-                            'Edad',
-                            getSelectedEdadName(),
-                            'edad'
-                        )}
+                <View style={{ 
+                    flexDirection: 'row', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: 12, 
+                    backgroundColor: '#F9FAFB',
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#E5E7EB'
+                }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: typography.emphasis, fontSize: 14, color: brandColors.text }}>
+                            {showGroupedBySexo ? "Comparativa por Sexo" : "Vista General"}
+                        </Text>
+                        <Text style={{ fontFamily: typography.regular, fontSize: 12, color: brandColors.muted }}>
+                            {activeFiltersCount > 0 
+                                ? `${activeFiltersCount} filtros activos` 
+                                : "Sin filtros aplicados"}
+                        </Text>
                     </View>
-                    <View style={styles.filtersRow}>
-                        {renderDropdownButton(
-                            'Escolaridad',
-                            getSelectedEscolaridadName(),
-                            'escolaridad'
-                        )}
-                        {renderDropdownButton(
-                            'Calidad de vida',
-                            getSelectedCalidadVidaName(),
-                            'calidadVida'
-                        )}
-                        {/* Toggle for grouped view */}
-                        <TouchableOpacity
-                            style={[
-                                styles.groupToggleCompact,
-                                showGroupedBySexo && styles.groupToggleCompactActive,
-                            ]}
-                            onPress={() => {
-                                setShowGroupedBySexo(!showGroupedBySexo)
-                                if (!showGroupedBySexo) {
-                                    // Reset individual sexo filter when enabling grouped view
-                                    setSelectedSexoId(undefined)
-                                }
-                            }}
-                        >
-                            <Ionicons 
-                                name="git-compare-outline" 
-                                size={16} 
-                                color={showGroupedBySexo ? brandColors.primary : brandColors.muted} 
-                            />
-                            <Text
-                                style={[
-                                    styles.groupToggleCompactText,
-                                    showGroupedBySexo && styles.groupToggleCompactTextActive,
-                                ]}
-                            >
-                                Cruzada
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    
+                    <TouchableOpacity 
+                        style={{ 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            backgroundColor: activeFiltersCount > 0 ? '#EEF2FF' : '#FFF', 
+                            paddingHorizontal: 16, 
+                            paddingVertical: 10, 
+                            borderRadius: 20, 
+                            borderWidth: 1, 
+                            borderColor: activeFiltersCount > 0 ? brandColors.primary : '#E5E7EB' 
+                        }} 
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <Ionicons 
+                            name="options-outline" 
+                            size={20} 
+                            color={activeFiltersCount > 0 ? brandColors.primary : brandColors.text} 
+                        />
+                        <Text style={{ 
+                            marginLeft: 6, 
+                            fontWeight: '600', 
+                            color: activeFiltersCount > 0 ? brandColors.primary : brandColors.text 
+                        }}>
+                            Filtros
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -910,6 +1099,25 @@ export function QuestionDetailScreen({ route, navigation }: QuestionDetailScreen
                     </View>
                 </>
             )}
+
+            <AdvancedFilterModal 
+                visible={isFilterModalVisible}
+                onClose={() => setFilterModalVisible(false)}
+                filters={{
+                    municipioId: selectedMunicipioId,
+                    sexoId: selectedSexoId,
+                    edadRangeId: selectedEdadRangeId,
+                    escolaridadGroupId: selectedEscolaridadGroupId,
+                    calidadVidaGroupId: selectedCalidadVidaGroupId,
+                    groupedBySexo: showGroupedBySexo
+                }}
+                updateFilter={handleUpdateFilter}
+                onClear={clearAllFilters}
+            />
+
+            <CommentsSection questionId={column} />
+            <View style={{ height: 40 }} />
+
         </ScrollView>
     )
 }
