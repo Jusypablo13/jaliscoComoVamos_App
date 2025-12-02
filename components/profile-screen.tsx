@@ -3,17 +3,19 @@ import { useCallback, useEffect, useState } from 'react'
 import {
     ActivityIndicator,
     Linking,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
+    Alert,
     ScrollView
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as Clipboard from 'expo-clipboard'
 import { useAuthContext } from '../hooks/use-auth-context'
 import { supabase } from '../lib/supabase'
 import { brandColors, typography } from '../styles/theme'
-import SignOutButton from './sign-out-button'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from './navigation/NavigationTypes'
@@ -24,44 +26,32 @@ export function ProfileScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
     const [userInfo, setUserInfo] = useState<User | null>(null)
     const [isFetchingUserInfo, setIsFetchingUserInfo] = useState(false)
-    const [userInfoError, setUserInfoError] = useState<string | null>(null)
 
+    // Auto-fetch user info on mount if logged in
     useEffect(() => {
-        setUserInfo(null)
-        setUserInfoError(null)
-    }, [session])
-
-    const handleFetchUserInfo = useCallback(async () => {
-        if (isGuest) return
-
-        if (!session) {
-            setUserInfoError('No encontramos una sesión activa.')
-            return
+        if (!isGuest && session) {
+            fetchUserInfo()
         }
+    }, [session, isGuest])
 
+    const fetchUserInfo = async () => {
         setIsFetchingUserInfo(true)
-        setUserInfoError(null)
-
         try {
             const { data, error } = await supabase.auth.getUser()
-            if (error) {
-                throw error
-            }
-            setUserInfo(data.user ?? null)
-            if (!data.user) {
-                setUserInfoError('No pudimos obtener los datos del usuario.')
+            if (!error && data.user) {
+                setUserInfo(data.user)
             }
         } catch (error) {
             console.error('Error fetching user info:', error)
-            setUserInfo(null)
-            setUserInfoError(
-                'No pudimos recuperar tus datos. Inténtalo de nuevo en unos segundos.',
-            )
         } finally {
             setIsFetchingUserInfo(false)
         }
-    }, [session])
+    }
 
+    const copyToClipboard = async (text: string) => {
+        await Clipboard.setStringAsync(text)
+        Alert.alert('Copiado', 'ID de usuario copiado al portapapeles')
+    }
     return (
         <ScrollView>
         <View style={styles.container}>
@@ -71,154 +61,145 @@ export function ProfileScreen() {
                     Recupera desde Supabase los datos asociados a tu sesión actual.
                 </Text>
 
+    const handleLogout = async () => {
+        if (isGuest) {
+            navigation.navigate('Login')
+        } else {
+            await logout()
+        }
+    }
+
+    // Derived data
+    const userName = isGuest
+        ? 'Sin registrar'
+        : profile?.full_name || userInfo?.user_metadata?.full_name || userInfo?.user_metadata?.name || 'Usuario'
+
+    const userEmail = isGuest
+        ? 'Sin correo registrado'
+        : userInfo?.email || session?.user.email || 'Sin correo'
+
+    const userId = isGuest ? 'Invitado' : userInfo?.id || session?.user.id || '...'
+
+    const createdAt = userInfo?.created_at
+        ? new Date(userInfo.created_at).toLocaleString('es-MX', {
+            day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
+        })
+        : '...'
+
+    const lastSignIn = userInfo?.last_sign_in_at
+        ? new Date(userInfo.last_sign_in_at).toLocaleString('es-MX', {
+            day: 'numeric', month: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
+        })
+        : '...'
+
+    return (
+        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+            {/* Avatar Section */}
+            <View style={styles.avatarContainer}>
+                <View style={styles.avatarCircle}>
+                    <Ionicons name="person" size={60} color="#A0AEC0" />
+                </View>
+                <Text style={styles.userName}>{userName}</Text>
+            </View>
+
+            {/* Info Card */}
+            <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Nombre</Text>
+                    <Text style={styles.infoValue}>{userName}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Correo</Text>
+                    <Text style={styles.infoValue}>{userEmail}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>ID de usuario</Text>
+                    <View style={styles.idValueContainer}>
+                        <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
+                            {userId.substring(0, 8)}...{userId.substring(userId.length - 6)}
+                        </Text>
+                        {!isGuest && (
+                            <TouchableOpacity onPress={() => copyToClipboard(userId)} style={styles.copyButton}>
+                                <Ionicons name="copy-outline" size={16} color={brandColors.primary} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Fecha de creación</Text>
+                    <Text style={styles.infoValue}>{createdAt}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Último acceso</Text>
+                    <Text style={styles.infoValue}>{lastSignIn}</Text>
+                </View>
+            </View>
+
+            {/* Social Media Section */}
+            <Text style={styles.sectionTitle}>Síguenos en redes</Text>
+            <View style={styles.socialGrid}>
                 <TouchableOpacity
-                    style={[
-                        styles.button,
-                        styles.userInfoButton,
-                        isFetchingUserInfo && styles.buttonDisabled,
-                    ]}
-                    onPress={handleFetchUserInfo}
-                    disabled={isFetchingUserInfo}
-                    accessibilityLabel="Mostrar mis datos"
-                    accessibilityRole="button"
-                    accessibilityState={{ busy: isFetchingUserInfo }}
+                    style={styles.socialCard}
+                    onPress={() => Linking.openURL('https://www.facebook.com/jaliscomovamos')}
+                    accessibilityLabel="Visitar Facebook"
+                    accessibilityRole="link"
                 >
-                    {isFetchingUserInfo ? (
-                        <ActivityIndicator color={brandColors.surface} />
-                    ) : (
-                        <Text style={styles.buttonLabel}>Mostrar mis datos</Text>
-                    )}
+                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                    <Text style={styles.socialText}>@Facebook</Text>
                 </TouchableOpacity>
 
-                {userInfoError && <Text style={styles.errorText}>{userInfoError}</Text>}
+                <TouchableOpacity
+                    style={styles.socialCard}
+                    onPress={() => Linking.openURL('https://x.com/jaliscomovamos')}
+                    accessibilityLabel="Visitar X"
+                    accessibilityRole="link"
+                >
+                    <Text style={styles.xLogo}>𝕏</Text>
+                    <Text style={styles.socialText}>X</Text>
+                </TouchableOpacity>
 
-                {userInfo && (
-                    <View style={styles.userInfoBox}>
-                        {[
-                            {
-                                label: 'Nombre',
-                                value:
-                                    profile?.full_name ||
-                                    (userInfo.user_metadata &&
-                                        (userInfo.user_metadata.full_name ||
-                                            userInfo.user_metadata.name)) ||
-                                    'Sin registrar',
-                            },
-                            {
-                                label: 'Correo',
-                                value: userInfo.email ?? session?.user.email ?? 'Sin correo',
-                            },
-                            {
-                                label: 'ID de usuario',
-                                value: userInfo.id,
-                            },
-                            {
-                                label: 'Fecha de creación',
-                                value: userInfo.created_at
-                                    ? new Date(userInfo.created_at).toLocaleString('es-MX')
-                                    : 'Sin registro',
-                            },
-                            {
-                                label: 'Último acceso',
-                                value: userInfo.last_sign_in_at
-                                    ? new Date(userInfo.last_sign_in_at).toLocaleString('es-MX')
-                                    : 'Sin registro',
-                            },
-                        ].map((item) => (
-                            <View key={item.label} style={styles.userInfoRow}>
-                                <Text style={styles.userInfoLabel}>{item.label}</Text>
-                                <Text style={styles.userInfoValue}>{item.value}</Text>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                <TouchableOpacity
+                    style={styles.socialCard}
+                    onPress={() => Linking.openURL('https://www.instagram.com/jaliscomovamos/')}
+                    accessibilityLabel="Visitar Instagram"
+                    accessibilityRole="link"
+                >
+                    <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+                    <Text style={styles.socialText}>@Instagram</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.socialCard}
+                    onPress={() => Linking.openURL('https://www.youtube.com/channel/UCn1zLVu1oCAcXzlhMEMgE2w')}
+                    accessibilityLabel="Visitar YouTube"
+                    accessibilityRole="link"
+                >
+                    <Ionicons name="logo-youtube" size={24} color="#FF0000" />
+                    <Text style={styles.socialText}>YouTube</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.socialCard, styles.fullWidthCard]}
+                    onPress={() => Linking.openURL('https://jaliscocomovamos.org/')}
+                    accessibilityLabel="Visitar sitio web"
+                    accessibilityRole="link"
+                >
+                    <Ionicons name="globe-outline" size={24} color={brandColors.primary} />
+                    <Text style={styles.socialText}>@jaliscocomovamos.org</Text>
+                </TouchableOpacity>
             </View>
 
-            {isGuest && (
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Modo Invitado</Text>
-                    <Text style={styles.cardSubtitle}>
-                        Estás navegando como invitado. Para acceder a todas las funciones y
-                        guardar tu progreso, inicia sesión.
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => navigation.navigate('Login')}
-                        accessibilityLabel="Ir al inicio de sesión"
-                        accessibilityRole="button"
-                    >
-                        <Text style={styles.buttonLabel}>Ir al Login</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Social Media Buttons */}
-            <View style={styles.socialSection}>
-                <Text style={styles.socialTitle}>Síguenos en redes</Text>
-                <View style={styles.socialButtonsContainer}>
-                    <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#1877F2' }]}
-                        onPress={() => Linking.openURL('https://www.facebook.com/jaliscomovamos')}
-                        accessibilityLabel="Visitar Facebook de Jalisco Cómo Vamos"
-                        accessibilityRole="link"
-                    >
-                        <View style={styles.socialIconContainer}>
-                            <Ionicons name="logo-facebook" size={20} color="white" />
-                        </View>
-                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#000000' }]}
-                        onPress={() => Linking.openURL('https://x.com/jaliscomovamos')}
-                        accessibilityLabel="Visitar X de Jalisco Cómo Vamos"
-                        accessibilityRole="link"
-                    >
-                        <View style={styles.socialIconContainer}>
-                            {/* Custom X Logo using Text since Ionicons might not have it yet */}
-                            <Text style={styles.xLogo}>𝕏</Text>
-                        </View>
-                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#E4405F' }]}
-                        onPress={() => Linking.openURL('https://www.instagram.com/jaliscomovamos/')}
-                        accessibilityLabel="Visitar Instagram de Jalisco Cómo Vamos"
-                        accessibilityRole="link"
-                    >
-                        <View style={styles.socialIconContainer}>
-                            <Ionicons name="logo-instagram" size={20} color="white" />
-                        </View>
-                        <Text style={styles.socialButtonText}>@jaliscomovamos</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: '#FF0000' }]}
-                        onPress={() => Linking.openURL('https://www.youtube.com/channel/UCn1zLVu1oCAcXzlhMEMgE2w')}
-                        accessibilityLabel="Visitar YouTube de Jalisco Cómo Vamos"
-                        accessibilityRole="link"
-                    >
-                        <View style={styles.socialIconContainer}>
-                            <Ionicons name="logo-youtube" size={20} color="white" />
-                        </View>
-                        <Text style={styles.socialButtonText}>Jalisco Cómo Vamos</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.socialButton, { backgroundColor: brandColors.primary }]}
-                        onPress={() => Linking.openURL('https://jaliscocomovamos.org/')}
-                        accessibilityLabel="Visitar sitio web de Jalisco Cómo Vamos"
-                        accessibilityRole="link"
-                    >
-                        <View style={styles.socialIconContainer}>
-                            <Ionicons name="globe-outline" size={20} color="white" />
-                        </View>
-                        <Text style={styles.socialButtonText}>jaliscocomovamos.org</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
+            {/* Logout Button */}
+            <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                accessibilityLabel={isGuest ? "Ir al inicio de sesión" : "Cerrar sesión"}
+                accessibilityRole="button"
+            >
+                <Text style={styles.logoutButtonText}>
+                    {isGuest ? 'Iniciar sesión' : 'Cerrar sesión'}
+                </Text>
+            </TouchableOpacity>
             {!isGuest && (
                 <View style={styles.signOutContainer}>
                     <SignOutButton />
@@ -232,126 +213,131 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
-        backgroundColor: brandColors.background,
+        backgroundColor: '#F7FAFC', // Light gray background
     },
-    card: {
-        backgroundColor: brandColors.surface,
+    contentContainer: {
+        padding: 24,
+        paddingBottom: 40,
+    },
+    avatarContainer: {
+        alignItems: 'center',
+        marginBottom: 24,
+        marginTop: 16,
+    },
+    avatarCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    userName: {
+        fontFamily: typography.heading,
+        fontSize: 24,
+        color: '#2D3748',
+    },
+    infoCard: {
+        backgroundColor: 'white',
         borderRadius: 20,
         padding: 20,
-        marginBottom: 24,
-        shadowColor: '#00000022',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
         shadowRadius: 12,
-        elevation: 5,
+        elevation: 3,
+        marginBottom: 32,
     },
-    cardTitle: {
-        fontFamily: typography.heading,
-        fontSize: 18,
-        color: brandColors.primary,
-        marginBottom: 8,
-    },
-    cardSubtitle: {
-        fontFamily: typography.regular,
-        fontSize: 14,
-        color: brandColors.text,
-        marginBottom: 20,
-    },
-    button: {
-        backgroundColor: brandColors.primary,
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonLabel: {
-        fontFamily: typography.heading,
-        fontSize: 16,
-        color: brandColors.surface,
-    },
-    userInfoButton: {
-        marginTop: 8,
-        marginBottom: 12,
-    },
-    errorText: {
-        fontFamily: typography.regular,
-        color: brandColors.accent,
-    },
-    userInfoBox: {
-        borderWidth: 1,
-        borderColor: '#E0E4EA',
-        borderRadius: 14,
-        padding: 16,
-        backgroundColor: '#F8FAFF',
-    },
-    userInfoRow: {
+    infoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F7FAFC',
     },
-    userInfoLabel: {
-        fontFamily: typography.emphasis,
-        fontSize: 14,
-        color: brandColors.primary,
-    },
-    userInfoValue: {
-        fontFamily: typography.regular,
-        fontSize: 14,
-        color: brandColors.text,
-        textAlign: 'right',
-        flexShrink: 1,
-    },
-    signOutContainer: {
-        marginTop: 20,
-        marginBottom: 40,
-    },
-    socialSection: {
-        marginTop: 'auto',
-        marginBottom: 20,
-        alignItems: 'center',
-    },
-    socialTitle: {
-        fontFamily: typography.emphasis,
-        fontSize: 14,
-        color: brandColors.muted,
-        marginBottom: 12,
-    },
-    socialButtonsContainer: {
-        flexDirection: 'column',
-        gap: 12,
-        width: '100%',
-    },
-    socialButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    socialIconContainer: {
-        width: 32,
-        height: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    socialButtonText: {
+    infoLabel: {
         fontFamily: typography.heading,
         fontSize: 14,
-        color: 'white',
+        color: brandColors.primary,
+        flex: 1,
+    },
+    infoValue: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: '#4A5568',
+        textAlign: 'right',
+        flex: 2,
+    },
+    idValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        flex: 2,
+    },
+    copyButton: {
+        marginLeft: 8,
+        padding: 4,
+    },
+    sectionTitle: {
+        fontFamily: typography.regular,
+        fontSize: 16,
+        color: '#A0AEC0',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    socialGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 32,
+    },
+    socialCard: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 16,
+        width: '48%', // Approx half width
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    fullWidthCard: {
+        width: '100%',
+    },
+    socialText: {
+        fontFamily: typography.heading,
+        fontSize: 14,
+        color: '#2D3748',
+        marginLeft: 12,
+        flex: 1,
     },
     xLogo: {
-        fontSize: 20,
-        color: 'white',
+        fontSize: 22,
         fontWeight: 'bold',
+        color: 'black',
+        width: 24,
+        textAlign: 'center',
+    },
+    logoutButton: {
+        backgroundColor: '#E53E3E', // Red
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+        shadowColor: '#E53E3E',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    logoutButtonText: {
+        fontFamily: typography.heading,
+        fontSize: 16,
+        color: 'white',
     },
 })
