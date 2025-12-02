@@ -72,6 +72,9 @@ export function ProfileScreen() {
                     ]}
                     onPress={handleFetchUserInfo}
                     disabled={isFetchingUserInfo}
+                    accessibilityLabel="Mostrar mis datos"
+                    accessibilityRole="button"
+                    accessibilityState={{ busy: isFetchingUserInfo }}
                 >
                     {isFetchingUserInfo ? (
                         <ActivityIndicator color={brandColors.surface} />
@@ -135,6 +138,8 @@ export function ProfileScreen() {
                         style={styles.button}
                         // Signing out clears the guest session, triggering the auth flow again
                         onPress={logout}
+                        accessibilityLabel="Ir al inicio de sesión"
+                        accessibilityRole="button"
                     >
                         <Text style={styles.buttonLabel}>Ir al Login</Text>
                     </TouchableOpacity>
@@ -148,6 +153,8 @@ export function ProfileScreen() {
                     <TouchableOpacity
                         style={[styles.socialButton, { backgroundColor: '#1877F2' }]}
                         onPress={() => Linking.openURL('https://www.facebook.com/jaliscomovamos')}
+                        accessibilityLabel="Visitar Facebook de Jalisco Cómo Vamos"
+                        accessibilityRole="link"
                     >
                         <View style={styles.socialIconContainer}>
                             <Ionicons name="logo-facebook" size={20} color="white" />
@@ -158,6 +165,8 @@ export function ProfileScreen() {
                     <TouchableOpacity
                         style={[styles.socialButton, { backgroundColor: '#000000' }]}
                         onPress={() => Linking.openURL('https://x.com/jaliscomovamos')}
+                        accessibilityLabel="Visitar X de Jalisco Cómo Vamos"
+                        accessibilityRole="link"
                     >
                         <View style={styles.socialIconContainer}>
                             {/* Custom X Logo using Text since Ionicons might not have it yet */}
@@ -169,6 +178,8 @@ export function ProfileScreen() {
                     <TouchableOpacity
                         style={[styles.socialButton, { backgroundColor: '#E4405F' }]}
                         onPress={() => Linking.openURL('https://www.instagram.com/jaliscomovamos/')}
+                        accessibilityLabel="Visitar Instagram de Jalisco Cómo Vamos"
+                        accessibilityRole="link"
                     >
                         <View style={styles.socialIconContainer}>
                             <Ionicons name="logo-instagram" size={20} color="white" />
@@ -179,6 +190,8 @@ export function ProfileScreen() {
                     <TouchableOpacity
                         style={[styles.socialButton, { backgroundColor: '#FF0000' }]}
                         onPress={() => Linking.openURL('https://www.youtube.com/channel/UCn1zLVu1oCAcXzlhMEMgE2w')}
+                        accessibilityLabel="Visitar YouTube de Jalisco Cómo Vamos"
+                        accessibilityRole="link"
                     >
                         <View style={styles.socialIconContainer}>
                             <Ionicons name="logo-youtube" size={20} color="white" />
@@ -189,6 +202,8 @@ export function ProfileScreen() {
                     <TouchableOpacity
                         style={[styles.socialButton, { backgroundColor: brandColors.primary }]}
                         onPress={() => Linking.openURL('https://jaliscocomovamos.org/')}
+                        accessibilityLabel="Visitar sitio web de Jalisco Cómo Vamos"
+                        accessibilityRole="link"
                     >
                         <View style={styles.socialIconContainer}>
                             <Ionicons name="globe-outline" size={20} color="white" />

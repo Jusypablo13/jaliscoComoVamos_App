@@ -90,6 +90,7 @@ export function FilterBar({
                         onSearch(text)
                     }}
                     placeholderTextColor={brandColors.muted}
+                    accessibilityLabel="Buscar tema o pregunta"
                 />
             </View>
 
@@ -114,6 +115,8 @@ export function FilterBar({
                                         setSearchQuery('')
                                         setIsSearching(false)
                                     }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Pregunta: ${q.texto_pregunta || q.pregunta_id}`}
                                 >
                                     <View>
                                         {q.nombre_categoria && (
@@ -137,6 +140,9 @@ export function FilterBar({
                     <TouchableOpacity
                         style={styles.dropdownButton}
                         onPress={() => setModalVisible(true)}
+                        accessibilityLabel="Seleccionar temática"
+                        accessibilityHint="Abre una lista de temas disponibles"
+                        accessibilityRole="button"
                     >
                         <Text style={[
                             styles.dropdownButtonText,
@@ -162,7 +168,11 @@ export function FilterBar({
                             <View style={styles.modalContent}>
                                 <View style={styles.modalHeader}>
                                     <Text style={styles.modalTitle}>Seleccionar Temática</Text>
-                                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                    <TouchableOpacity
+                                        onPress={() => setModalVisible(false)}
+                                        accessibilityLabel="Cerrar selector de temática"
+                                        accessibilityRole="button"
+                                    >
                                         <Ionicons name="close" size={24} color={brandColors.text} />
                                     </TouchableOpacity>
                                 </View>
@@ -173,6 +183,9 @@ export function FilterBar({
                                             onThemeSelect(null)
                                             setModalVisible(false)
                                         }}
+                                        accessibilityRole="button"
+                                        accessibilityState={{ selected: selectedTheme === null }}
+                                        accessibilityLabel="Todas las temáticas"
                                     >
                                         <Text style={[
                                             styles.modalOptionText,
@@ -190,6 +203,9 @@ export function FilterBar({
                                                 onThemeSelect(cat)
                                                 setModalVisible(false)
                                             }}
+                                            accessibilityRole="button"
+                                            accessibilityState={{ selected: selectedTheme === cat }}
+                                            accessibilityLabel={`Temática: ${cat}`}
                                         >
                                             <Text style={[
                                                 styles.modalOptionText,
@@ -220,6 +236,9 @@ export function FilterBar({
                                     selectedQuestion === q.pregunta_id && styles.questionItemSelected,
                                 ]}
                                 onPress={() => onQuestionSelect(q)}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: selectedQuestion === q.pregunta_id }}
+                                accessibilityLabel={`Pregunta: ${q.texto_pregunta || q.pregunta_id}`}
                             >
                                 <Text
                                     style={[

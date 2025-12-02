@@ -111,6 +111,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                             <TouchableOpacity
                                 onPress={() => setInfoModalVisible(true)}
                                 style={styles.infoButton}
+                                accessibilityLabel="Información de la encuesta"
+                                accessibilityHint="Muestra detalles sobre la encuesta y el aviso de privacidad"
+                                accessibilityRole="button"
                             >
                                 <Ionicons name="information-circle-outline" size={28} color={brandColors.primary} />
                             </TouchableOpacity>
@@ -118,6 +121,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                                 source={require('../assets/logo-observatorio.png')}
                                 style={styles.headerLogo}
                                 resizeMode="contain"
+                                accessibilityLabel="Logo del Observatorio Jalisco Cómo Vamos"
                             />
                         </View>
                     </View>
@@ -159,7 +163,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Información de la encuesta</Text>
-                                <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
+                                <TouchableOpacity
+                                    onPress={() => setInfoModalVisible(false)}
+                                    accessibilityLabel="Cerrar modal"
+                                    accessibilityRole="button"
+                                >
                                     <Ionicons name="close" size={24} color={brandColors.text} />
                                 </TouchableOpacity>
                             </View>
@@ -177,6 +185,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                                 <TouchableOpacity
                                     style={styles.privacyButton}
                                     onPress={() => Linking.openURL('https://drive.google.com/file/d/1aInmjBc_iMpK59llbY1Sr-AarWE15FQz/view?usp=sharing')}
+                                    accessibilityLabel="Abrir aviso de privacidad"
+                                    accessibilityRole="link"
                                 >
                                     <Text style={styles.privacyButtonText}>Aviso de Privacidad</Text>
                                     <Ionicons name="open-outline" size={16} color="white" style={{ marginLeft: 8 }} />
