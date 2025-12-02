@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+    Image,
+    Linking,
+    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -7,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useUserPreferences } from '../contexts/user-preferences-context'
 import { useAuthContext } from '../hooks/use-auth-context'
 import {
@@ -31,6 +35,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     const [result, setResult] = useState<AggregatedResult | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isRefreshing, setIsRefreshing] = useState(false)
+    const [infoModalVisible, setInfoModalVisible] = useState(false)
 
     const fetchData = useCallback(async () => {
         setIsLoading(true)
@@ -93,13 +98,28 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         <ScrollView>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <View>
-                        <Text style={styles.welcomeTitle}>
-                            ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
-                        </Text>
-                        <Text style={styles.welcomeSubtitle}>
-                            Explora los datos del Observatorio
-                        </Text>
+                    <View style={styles.headerContent}>
+                        <View style={styles.headerLeft}>
+                            <Text style={styles.welcomeTitle}>
+                                ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
+                            </Text>
+                            <Text style={styles.welcomeSubtitle}>
+                                Explora los datos del Observatorio
+                            </Text>
+                        </View>
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity
+                                onPress={() => setInfoModalVisible(true)}
+                                style={styles.infoButton}
+                            >
+                                <Ionicons name="information-circle-outline" size={28} color={brandColors.primary} />
+                            </TouchableOpacity>
+                            <Image
+                                source={require('../assets/logo-observatorio.png')}
+                                style={styles.headerLogo}
+                                resizeMode="contain"
+                            />
+                        </View>
                     </View>
                 </View>
 
@@ -127,6 +147,44 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     isLoading={isLoading}
                     currentFilters={filters}
                 />
+
+                {/* Info Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={infoModalVisible}
+                    onRequestClose={() => setInfoModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Información de la encuesta</Text>
+                                <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color={brandColors.text} />
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView style={styles.modalBody}>
+                                <Text style={styles.modalText}>
+                                    La Encuesta de Percepción Ciudadana sobre Calidad de Vida es un estudio anual realizado por Jalisco Cómo Vamos, un observatorio ciudadano que analiza las condiciones de vida en el Área Metropolitana de Guadalajara. Su objetivo es conocer cómo perciben las personas su entorno, sus oportunidades y los servicios públicos, para generar información útil que permita tomar mejores decisiones en política pública, iniciativa privada, academia y sociedad civil.
+                                </Text>
+                                <Text style={styles.modalText}>
+                                    La encuesta mide la experiencia cotidiana de las y los habitantes en temas como seguridad, movilidad, medio ambiente, salud, economía familiar, participación ciudadana y satisfacción con la ciudad. Además de capturar percepciones, incluye indicadores de bienestar subjetivo y de confianza, lo que la convierte en una herramienta integral para entender cómo vive y siente la población su calidad de vida.
+                                </Text>
+                                <Text style={styles.modalText}>
+                                    Los datos aquí presentados forman parte de esta encuesta y buscan facilitar la consulta, visualización y análisis interactivo para cualquier persona interesada en entender y mejorar la calidad de vida en nuestra ciudad.
+                                </Text>
+
+                                <TouchableOpacity
+                                    style={styles.privacyButton}
+                                    onPress={() => Linking.openURL('https://drive.google.com/file/d/1aInmjBc_iMpK59llbY1Sr-AarWE15FQz/view?usp=sharing')}
+                                >
+                                    <Text style={styles.privacyButtonText}>Aviso de Privacidad</Text>
+                                    <Ionicons name="open-outline" size={16} color="white" style={{ marginLeft: 8 }} />
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
             </View>
         </ScrollView>
     )
@@ -155,5 +213,83 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingBottom: 40,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    headerLeft: {
+        flex: 1,
+        marginRight: 16,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    headerLogo: {
+        width: 40,
+        height: 40,
+    },
+    infoButton: {
+        padding: 4,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        backgroundColor: brandColors.surface,
+        borderRadius: 20,
+        maxHeight: '80%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    modalTitle: {
+        fontFamily: typography.heading,
+        fontSize: 18,
+        color: brandColors.primary,
+        flex: 1,
+    },
+    modalBody: {
+        padding: 20,
+    },
+    modalText: {
+        fontFamily: typography.regular,
+        fontSize: 14,
+        color: brandColors.text,
+        lineHeight: 22,
+        marginBottom: 16,
+        textAlign: 'justify',
+    },
+    privacyButton: {
+        backgroundColor: brandColors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 8,
+        marginBottom: 20,
+    },
+    privacyButtonText: {
+        fontFamily: typography.heading,
+        fontSize: 14,
+        color: 'white',
+        marginRight: 8,
     },
 })
