@@ -101,7 +101,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     <View style={styles.headerContent}>
                         <View style={styles.headerLeft}>
                             <Text style={styles.welcomeTitle}>
-                                ¡Hola, {isGuest ? 'Invitado' : profile?.full_name ?? session?.user.email}!
+                                ¡Hola, {isGuest ? 'Invitado ' : profile?.full_name ?? "te damos la bienvenida"}!
                             </Text>
                             <Text style={styles.welcomeSubtitle}>
                                 Explora los datos del Observatorio
